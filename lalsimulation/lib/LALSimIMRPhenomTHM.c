@@ -421,6 +421,12 @@ int LALSimIMRPhenomTHM_Modes(
   xorb = XLALCreateREAL8Sequence(length);
   phi22 = XLALCreateREAL8Sequence(length);
   
+  /********Changes made by Neha******************/
+
+  double* time_array = NULL;
+  UINT4 current_size = 0;
+
+  /**********************************************/
 
   /* Compute 22 phase and x=(0.5*omega_22)^(2/3), needed for all modes. 
   Depending on the inspiral region, theta is defined with a fitted t0 parameter or with t0=0. */
@@ -430,6 +436,22 @@ int LALSimIMRPhenomTHM_Modes(
     for(UINT4 jdx = 0; jdx < length_insp_early; jdx++)
     {
       t = pPhase->tmin + jdx*pWF->dtM;
+
+      /*************Changes made by Neha************/
+      current_size++;
+      time_array = (double*) realloc(time_array, current_size * sizeof(double));
+    
+      // Check if realloc succeeded
+      if (time_array == NULL) {
+          // Handle memory allocation failure
+          printf("Memory allocation failed!\n");
+          return 1;
+      }
+    
+      // Store the current value of t in the dynamically resized time_array
+      time_array[current_size - 1] = t;
+
+      /**********************************************/
 
       thetabar = pow(pWF->eta*(pPhase->tt0-t),-1./8);
     
