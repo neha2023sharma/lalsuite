@@ -418,8 +418,10 @@ int LALSimIMRPhenomTHM_Modes(
   /* Initialize REAL8 sequences for storing the phase, frequency and PN expansion parameter x of the 22 */
   REAL8Sequence *phi22 = NULL;
   REAL8Sequence *xorb = NULL;
+  REAL8Sequence *time_array = NULL;
   xorb = XLALCreateREAL8Sequence(length);
   phi22 = XLALCreateREAL8Sequence(length);
+  time_array = XLALCreateREAL8Sequence(length);
   
 
   /* Compute 22 phase and x=(0.5*omega_22)^(2/3), needed for all modes. 
@@ -430,6 +432,8 @@ int LALSimIMRPhenomTHM_Modes(
     for(UINT4 jdx = 0; jdx < length_insp_early; jdx++)
     {
       t = pPhase->tmin + jdx*pWF->dtM;
+
+      time_array->data[jdx] = t;
 
       thetabar = pow(pWF->eta*(pPhase->tt0-t),-1./8);
     
@@ -446,6 +450,8 @@ int LALSimIMRPhenomTHM_Modes(
     for(UINT4 jdx = length_insp_early; jdx < length_insp; jdx++) // For times later than the early-late inspiral boundary, it computes phase, frequency and x with the extended TaylorT3 (with tt0=0)
     {
       t = pPhase->tmin + jdx*pWF->dtM;
+
+      time_array->data[jdx] = t;
 
       thetabar = pow(-pWF->eta*t,-1./8);
     
@@ -465,6 +471,8 @@ int LALSimIMRPhenomTHM_Modes(
       for(UINT4 jdx = 0; jdx < length_insp; jdx++)
       {
         t = pPhase->tmin + jdx*pWF->dtM;
+
+        time_array->data[jdx] = t;
 
         thetabar = pow(-pWF->eta*t,-1./8);
     
@@ -538,6 +546,8 @@ int LALSimIMRPhenomTHM_Modes(
   LALFree(pPhase);
   LALFree(pWF);
 
+  XLALDestroyREAL8Sequence(time_array);
+  
   XLALDestroyREAL8Sequence(phi22);
 
   XLALDestroyREAL8Sequence(xorb);
