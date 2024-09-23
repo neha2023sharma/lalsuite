@@ -94,8 +94,8 @@
 int XLALSimIMRPhenomT(
   REAL8TimeSeries **hp, /**< [out] TD waveform for plus polarisation */
   REAL8TimeSeries **hc, /**< [out] TD waveform for cross polarisation */
-  REAL8 m1_SI,      /**< Mass of companion 1 (kg) */
-  REAL8 m2_SI,      /**< Mass of companion 2 (kg) */
+  REAL8 m1_SI,      /**< Mass of  companion 1 (kg) */
+  REAL8 m2_SI,      /**< Mass of  companion 2 (kg) */
   REAL8 chi1L,      /**< Dimensionless aligned spin of companion 1 */
   REAL8 chi2L,      /**< Dimensionless aligned spin of companion 2 */
   REAL8 distance,   /**< Luminosity distance (m) */
