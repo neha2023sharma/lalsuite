@@ -432,7 +432,7 @@ int LALSimIMRPhenomTHM_Modes(
     for(UINT4 jdx = 0; jdx < length_insp_early; jdx++)
     {
       t = pPhase->tmin + jdx*pWF->dtM;
-
+    
       time_array->data[jdx] = t;
 
       thetabar = pow(pWF->eta*(pPhase->tt0-t),-1./8);
