@@ -540,7 +540,9 @@ int IMRPhenomTSetPhase22Coefficients(IMRPhenomTPhase22Struct *pPhase, IMRPhenomT
         }
     XLAL_CHECK(GSL_SUCCESS == status, XLAL_EFUNC, "Error: Root finder unable to solve minimum time. Minimum frequency may be too high for these parameters. Try reducing fmin below the peak frequency: %.8f Hz. \n", pPhase->omegaPeak/(LAL_TWOPI*wf->M_sec));
 
-    pPhase->tmin = r; // Minimum time is selected as the solution of the above root finding operation
+    //pPhase->tmin = r; // Minimum time is selected as the solution of the above root finding operation
+	pPhase->tmin = -2.0/((wf->Mtot)*LAL_MTSUN_SI);
+	printf("The value of minimum time is: %f\n",pPhase->tmin);
     gsl_root_fsolver_free(solver); // Free the gsl solver
 
     /* Now we repeat the same procedure for determining the time at which the specified reference frequency occurs. This is needed to set the reference phase */
