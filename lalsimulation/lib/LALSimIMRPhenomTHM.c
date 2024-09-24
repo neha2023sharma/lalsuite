@@ -499,6 +499,7 @@ int LALSimIMRPhenomTHM_Modes(
   for(UINT4 jdx = length_insp; jdx < length; jdx++)
   {
     t = pPhase->tmin + jdx*pWF->dtM;
+    time_array->data[jdx] = t; /*Changes made by Neha */
 
     w22 = IMRPhenomTomega22(t, 0.0, pWF, pPhase);
     xorb->data[jdx] = pow(0.5*w22,2./3);
