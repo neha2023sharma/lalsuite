@@ -138,11 +138,7 @@ int XLALSimIMRPhenomT(
 
   /* Compute modes dominant modes */
   SphHarmTimeSeries *hlms = NULL;
-
-  /********Changed made by Neha********/
-  LALSimResult status_arr = LALSimIMRPhenomTHM_Modes(&hlms, m1_SI, m2_SI, chi1L, chi2L, distance, deltaT, fmin, fRef, phiRef, lalParams_aux, only22); 
-  status = status_arr.status;
-  /***********************************/
+  status = LALSimIMRPhenomTHM_Modes(&hlms, m1_SI, m2_SI, chi1L, chi2L, distance, deltaT, fmin, fRef, phiRef, lalParams_aux, only22); 
   XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: Internal function LALSimIMRPhenomTHM_Modes has failed producing the modes.");
 
   /* Obtain length and epoch from modes (they are the same for all the modes) */
@@ -344,7 +340,6 @@ int LALSimIMRPhenomTHM_Modes(
   XLAL_CHECK(NULL != hlms, XLAL_EFAULT);
   XLAL_CHECK(*hlms == NULL, XLAL_EFAULT);
 
-  LALSimResult status_arr; /*Changed made by Neha */  
 
   /* Sanity checks */
   if(fRef  <  0.0) { XLAL_ERROR(XLAL_EDOM, "fRef_In must be positive or set to 0 to ignore.\n");  }
@@ -551,8 +546,6 @@ int LALSimIMRPhenomTHM_Modes(
     }
 
   }
-  status_arr.time_array = time_array; /*Changed made by Neha*/
-  status_arr.status = status; /*Changed made by Neha*/
 
   /*Free structures and destroy sequences and dict */
   XLALDestroyValue(ModeArray);
@@ -565,7 +558,7 @@ int LALSimIMRPhenomTHM_Modes(
 
   XLALDestroyDict(lalParams_aux);
 
-  return status_arr; /*Changes made by Neha . Initially it was only status. */
+  return status;
 }
 
 /* Internal function for generating one mode. See section II of PhenomTHM paper for details on mode construction: https://dcc.ligo.org/DocDB/0172/P2000524/001/PhenomTHM_SH-3.pdf */
