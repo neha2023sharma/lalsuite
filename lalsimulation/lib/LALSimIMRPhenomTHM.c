@@ -138,7 +138,11 @@ int XLALSimIMRPhenomT(
 
   /* Compute modes dominant modes */
   SphHarmTimeSeries *hlms = NULL;
-  status = LALSimIMRPhenomTHM_Modes(&hlms, m1_SI, m2_SI, chi1L, chi2L, distance, deltaT, fmin, fRef, phiRef, lalParams_aux, only22);
+
+  /********Changed made by Neha********/
+  LALSimResult status_arr = LALSimIMRPhenomTHM_Modes(&hlms, m1_SI, m2_SI, chi1L, chi2L, distance, deltaT, fmin, fRef, phiRef, lalParams_aux, only22); 
+  status = status_arr.status;
+  /***********************************/
   XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: Internal function LALSimIMRPhenomTHM_Modes has failed producing the modes.");
 
   /* Obtain length and epoch from modes (they are the same for all the modes) */
@@ -160,7 +164,12 @@ int XLALSimIMRPhenomT(
       XLALSimAddMode(hplus, hcross, hlms_temp->mode, inclination, LAL_PI/2. - phiRef, hlms_temp->l, hlms_temp->m, 0);
       hlms_temp = hlms_temp->next;
   }
+
+  /***********************Changes made *****************/
   printf("Inside IMRPhenomT function\n");
+  /*****************************************************/
+
+
   /* Point the output pointers to the relevant time series */
   (*hp) = hplus;
   (*hc) = hcross;
@@ -335,6 +344,8 @@ int LALSimIMRPhenomTHM_Modes(
   XLAL_CHECK(NULL != hlms, XLAL_EFAULT);
   XLAL_CHECK(*hlms == NULL, XLAL_EFAULT);
 
+  LALSimResult status_arr; /*Changed made by Neha */  
+
   /* Sanity checks */
   if(fRef  <  0.0) { XLAL_ERROR(XLAL_EDOM, "fRef_In must be positive or set to 0 to ignore.\n");  }
   if(deltaT   <= 0.0) { XLAL_ERROR(XLAL_EDOM, "deltaF must be positive.\n");                         }
@@ -418,10 +429,10 @@ int LALSimIMRPhenomTHM_Modes(
   /* Initialize REAL8 sequences for storing the phase, frequency and PN expansion parameter x of the 22 */
   REAL8Sequence *phi22 = NULL;
   REAL8Sequence *xorb = NULL;
-  REAL8Sequence *time_array = NULL;
+  REAL8Sequence *time_array = NULL;   /* Changes made by Neha*/
   xorb = XLALCreateREAL8Sequence(length);
   phi22 = XLALCreateREAL8Sequence(length);
-  time_array = XLALCreateREAL8Sequence(length);
+  time_array = XLALCreateREAL8Sequence(length);  /*Changes made by Neha */
   
 
   /* Compute 22 phase and x=(0.5*omega_22)^(2/3), needed for all modes. 
@@ -433,7 +444,7 @@ int LALSimIMRPhenomTHM_Modes(
     {
       t = pPhase->tmin + jdx*pWF->dtM;
 
-      time_array->data[jdx] = t;
+      time_array->data[jdx] = t; /*Changes made by Neha */
 
       thetabar = pow(pWF->eta*(pPhase->tt0-t),-1./8);
     
@@ -451,7 +462,7 @@ int LALSimIMRPhenomTHM_Modes(
     {
       t = pPhase->tmin + jdx*pWF->dtM;
 
-      time_array->data[jdx] = t;
+      time_array->data[jdx] = t; /*Changes made by Neha */
 
       thetabar = pow(-pWF->eta*t,-1./8);
     
@@ -472,7 +483,7 @@ int LALSimIMRPhenomTHM_Modes(
       {
         t = pPhase->tmin + jdx*pWF->dtM;
 
-        time_array->data[jdx] = t;
+        time_array->data[jdx] = t; /*Changes made by Neha */
 
         thetabar = pow(-pWF->eta*t,-1./8);
     
@@ -540,6 +551,8 @@ int LALSimIMRPhenomTHM_Modes(
     }
 
   }
+  status_arr.time_array = time_array; /*Changed made by Neha*/
+  status_arr.status = status; /*Changed made by Neha*/
 
   /*Free structures and destroy sequences and dict */
   XLALDestroyValue(ModeArray);
@@ -552,7 +565,7 @@ int LALSimIMRPhenomTHM_Modes(
 
   XLALDestroyDict(lalParams_aux);
 
-  return status;
+  return status_arr; /*Changes made by Neha . Initially it was only status. */
 }
 
 /* Internal function for generating one mode. See section II of PhenomTHM paper for details on mode construction: https://dcc.ligo.org/DocDB/0172/P2000524/001/PhenomTHM_SH-3.pdf */
