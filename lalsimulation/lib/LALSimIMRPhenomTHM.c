@@ -160,7 +160,7 @@ int XLALSimIMRPhenomT(
       XLALSimAddMode(hplus, hcross, hlms_temp->mode, inclination, LAL_PI/2. - phiRef, hlms_temp->l, hlms_temp->m, 0);
       hlms_temp = hlms_temp->next;
   }
-
+  printf("Inside IMRPhenomT function\n");
   /* Point the output pointers to the relevant time series */
   (*hp) = hplus;
   (*hc) = hcross;
@@ -432,7 +432,7 @@ int LALSimIMRPhenomTHM_Modes(
     for(UINT4 jdx = 0; jdx < length_insp_early; jdx++)
     {
       t = pPhase->tmin + jdx*pWF->dtM;
-    
+
       time_array->data[jdx] = t;
 
       thetabar = pow(pWF->eta*(pPhase->tt0-t),-1./8);
@@ -545,8 +545,6 @@ int LALSimIMRPhenomTHM_Modes(
   XLALDestroyValue(ModeArray);
   LALFree(pPhase);
   LALFree(pWF);
-
-  XLALDestroyREAL8Sequence(time_array);
   
   XLALDestroyREAL8Sequence(phi22);
 
