@@ -426,8 +426,14 @@ int LALSimIMRPhenomTHM_Modes(
   REAL8Sequence *time_array = NULL; /****Changes made by Neha****/
   xorb = XLALCreateREAL8Sequence(length);
   phi22 = XLALCreateREAL8Sequence(length);
-  time_array = XLALCreateREAL8Sequence(length);  /*Changes made by Neha */
-  
+  time_array = XLALCreateREAL8Sequence(length);  /*Changes made by Neha*/
+
+  REAL8 start = -2.0/(((m1_SI+m2_SI)/LAL_MSUN_SI)*LAL_MTSUN_SI);
+  printf("The value of minimum time is (in IMRPhenomTHM code): %f\n",start);
+  /***************************************/
+  for (UINT4 i = 0; i < length; i++) {
+    time_array->data[i] = start + i * pWF->dtM;
+  }
 
   /* Compute 22 phase and x=(0.5*omega_22)^(2/3), needed for all modes. 
   Depending on the inspiral region, theta is defined with a fitted t0 parameter or with t0=0. */
@@ -436,8 +442,9 @@ int LALSimIMRPhenomTHM_Modes(
   {
     for(UINT4 jdx = 0; jdx < length_insp_early; jdx++)
     {
-      t = pPhase->tmin + jdx*pWF->dtM;
-      time_array->data[jdx] = t; /*Changes made by Neha */
+      //t = pPhase->tmin + jdx*pWF->dtM;
+      //time_array->data[jdx] = t; /*Changes made by Neha */
+      t = time_array->data[jdx];  /*Changes made by Neha */
 
       thetabar = pow(pWF->eta*(pPhase->tt0-t),-1./8);
     
@@ -453,8 +460,10 @@ int LALSimIMRPhenomTHM_Modes(
 
     for(UINT4 jdx = length_insp_early; jdx < length_insp; jdx++) // For times later than the early-late inspiral boundary, it computes phase, frequency and x with the extended TaylorT3 (with tt0=0)
     {
-      t = pPhase->tmin + jdx*pWF->dtM;
-      time_array->data[jdx] = t; /*Changes made by Neha */ 
+      //t = pPhase->tmin + jdx*pWF->dtM;
+      //time_array->data[jdx] = t; /*Changes made by Neha */
+
+      t = time_array->data[jdx];  /*Changes made by Neha */
 
       thetabar = pow(-pWF->eta*t,-1./8);
     
@@ -473,8 +482,9 @@ int LALSimIMRPhenomTHM_Modes(
   {
       for(UINT4 jdx = 0; jdx < length_insp; jdx++)
       {
-        t = pPhase->tmin + jdx*pWF->dtM;
-        time_array->data[jdx] = t; /*Changes made by Neha */
+        //t = pPhase->tmin + jdx*pWF->dtM;
+        //time_array->data[jdx] = t; /*Changes made by Neha */
+        t = time_array->data[jdx];  /*Changes made by Neha */
 
         thetabar = pow(-pWF->eta*t,-1./8);
     
@@ -494,8 +504,10 @@ int LALSimIMRPhenomTHM_Modes(
   which can occur later than the end of the 22 inspiral. */
   for(UINT4 jdx = length_insp; jdx < length; jdx++)
   {
-    t = pPhase->tmin + jdx*pWF->dtM;
-    time_array->data[jdx] = t; /*Changes made by Neha */
+    //t = pPhase->tmin + jdx*pWF->dtM;
+    //time_array->data[jdx] = t; /*Changes made by Neha */
+
+    t = time_array->data[jdx];  /*Changes made by Neha */
 
     w22 = IMRPhenomTomega22(t, 0.0, pWF, pPhase);
     xorb->data[jdx] = pow(0.5*w22,2./3);
