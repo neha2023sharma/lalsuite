@@ -161,7 +161,7 @@ int XLALSimIMRPhenomT(
       hlms_temp = hlms_temp->next;
   }
 
-  /***********************Changes made *****************/
+  /***********************Changes made by Neha *****************/
   printf("Inside IMRPhenomT function\n");
   /*****************************************************/
 
@@ -423,7 +423,7 @@ int LALSimIMRPhenomTHM_Modes(
   /* Initialize REAL8 sequences for storing the phase, frequency and PN expansion parameter x of the 22 */
   REAL8Sequence *phi22 = NULL;
   REAL8Sequence *xorb = NULL;
-  REAL8Sequence *time_array = NULL;   /* Changes made by Neha*/
+  REAL8Sequence *time_array = NULL; /****Changes made by Neha****/
   xorb = XLALCreateREAL8Sequence(length);
   phi22 = XLALCreateREAL8Sequence(length);
   time_array = XLALCreateREAL8Sequence(length);  /*Changes made by Neha */
@@ -437,7 +437,6 @@ int LALSimIMRPhenomTHM_Modes(
     for(UINT4 jdx = 0; jdx < length_insp_early; jdx++)
     {
       t = pPhase->tmin + jdx*pWF->dtM;
-
       time_array->data[jdx] = t; /*Changes made by Neha */
 
       thetabar = pow(pWF->eta*(pPhase->tt0-t),-1./8);
@@ -455,8 +454,7 @@ int LALSimIMRPhenomTHM_Modes(
     for(UINT4 jdx = length_insp_early; jdx < length_insp; jdx++) // For times later than the early-late inspiral boundary, it computes phase, frequency and x with the extended TaylorT3 (with tt0=0)
     {
       t = pPhase->tmin + jdx*pWF->dtM;
-
-      time_array->data[jdx] = t; /*Changes made by Neha */
+      time_array->data[jdx] = t; /*Changes made by Neha */ 
 
       thetabar = pow(-pWF->eta*t,-1./8);
     
@@ -476,7 +474,6 @@ int LALSimIMRPhenomTHM_Modes(
       for(UINT4 jdx = 0; jdx < length_insp; jdx++)
       {
         t = pPhase->tmin + jdx*pWF->dtM;
-
         time_array->data[jdx] = t; /*Changes made by Neha */
 
         thetabar = pow(-pWF->eta*t,-1./8);
@@ -666,6 +663,7 @@ int LALSimIMRPhenomTHM_OneMode(
       {
 
         t = pPhase->tmin + jdx*pWF->dtM;
+
         x = (xorb)->data[jdx]; // 22 frequency, needed for evaluating inspiral amplitude
         amplm = pWF->ampfac*IMRPhenomTHMAmp(t, x, pAmplm);
         
