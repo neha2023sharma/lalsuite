@@ -94,8 +94,8 @@
 int XLALSimIMRPhenomT(
   REAL8TimeSeries **hp, /**< [out] TD waveform for plus polarisation */
   REAL8TimeSeries **hc, /**< [out] TD waveform for cross polarisation */
-  REAL8 m1_SI,      /**< Mass of  companion 1 (kg) */
-  REAL8 m2_SI,      /**< Mass of  companion 2 (kg) */
+  REAL8 m1_SI,      /**< Mass of companion 1 (kg) */
+  REAL8 m2_SI,      /**< Mass of companion 2 (kg) */
   REAL8 chi1L,      /**< Dimensionless aligned spin of companion 1 */
   REAL8 chi2L,      /**< Dimensionless aligned spin of companion 2 */
   REAL8 distance,   /**< Luminosity distance (m) */
@@ -138,7 +138,7 @@ int XLALSimIMRPhenomT(
 
   /* Compute modes dominant modes */
   SphHarmTimeSeries *hlms = NULL;
-  status = LALSimIMRPhenomTHM_Modes(&hlms, m1_SI, m2_SI, chi1L, chi2L, distance, deltaT, fmin, fRef, phiRef, lalParams_aux, only22); 
+  status = LALSimIMRPhenomTHM_Modes(&hlms, m1_SI, m2_SI, chi1L, chi2L, distance, deltaT, fmin, fRef, phiRef, lalParams_aux, only22);
   XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: Internal function LALSimIMRPhenomTHM_Modes has failed producing the modes.");
 
   /* Obtain length and epoch from modes (they are the same for all the modes) */
@@ -339,7 +339,6 @@ int LALSimIMRPhenomTHM_Modes(
   /* Pointers sanity check */
   XLAL_CHECK(NULL != hlms, XLAL_EFAULT);
   XLAL_CHECK(*hlms == NULL, XLAL_EFAULT);
-
 
   /* Sanity checks */
   if(fRef  <  0.0) { XLAL_ERROR(XLAL_EDOM, "fRef_In must be positive or set to 0 to ignore.\n");  }
@@ -552,7 +551,6 @@ int LALSimIMRPhenomTHM_Modes(
   XLALDestroyValue(ModeArray);
   LALFree(pPhase);
   LALFree(pWF);
-  
   XLALDestroyREAL8Sequence(phi22);
 
   XLALDestroyREAL8Sequence(xorb);
