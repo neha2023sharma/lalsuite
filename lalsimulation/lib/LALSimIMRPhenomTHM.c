@@ -90,7 +90,6 @@
  * Routine to compute time domain polarisations for IMRPhenomT model. It returns two real time series for the plus and the cross polarisations,
  * constructed with the modes (l,m)=(2,2), (2,-2).
  */
-
 int XLALSimIMRPhenomT(
   REAL8TimeSeries **hp, /**< [out] TD waveform for plus polarisation */
   REAL8TimeSeries **hc, /**< [out] TD waveform for cross polarisation */
@@ -161,10 +160,92 @@ int XLALSimIMRPhenomT(
       hlms_temp = hlms_temp->next;
   }
 
-  /***********************Changes made by Neha *****************/
-  printf("Inside IMRPhenomT function\n");
-  /*****************************************************/
+  /* Point the output pointers to the relevant time series */
+  (*hp) = hplus;
+  (*hc) = hcross;
 
+  /* Destroy intermediate time series */
+  XLALDestroySphHarmTimeSeries(hlms);
+  XLALDestroySphHarmTimeSeries(hlms_temp);
+
+  /* Destroy lalParams_aux. */
+  XLALDestroyDict(lalParams_aux);
+  
+
+  return status;
+}
+
+
+int XLALSimIMRPhenomT_neha(
+  REAL8TimeSeries **hp, /**< [out] TD waveform for plus polarisation */
+  REAL8TimeSeries **hc, /**< [out] TD waveform for cross polarisation */
+  REAL8 m1_SI,      /**< Mass of companion 1 (kg) */
+  REAL8 m2_SI,      /**< Mass of companion 2 (kg) */
+  REAL8 chi1L,      /**< Dimensionless aligned spin of companion 1 */
+  REAL8 chi2L,      /**< Dimensionless aligned spin of companion 2 */
+  REAL8 distance,   /**< Luminosity distance (m) */
+  REAL8 inclination,  /**< inclination of source (rad) */
+  REAL8 deltaT,     /**< sampling interval (s) */
+  REAL8 fmin,     /**< starting GW frequency (Hz) */
+  REAL8 fRef,     /**< reference GW frequency (Hz) */
+  REAL8 phiRef,     /**< reference orbital phase (rad) */
+  REAL8Sequence *TimeArray,
+  LALDict *lalParams  /**< LAL dictionary containing accessory parameters */
+  )
+{
+
+  INT4 status;
+
+  /* Use an auxiliar laldict to not overwrite the input argument */
+   LALDict *lalParams_aux;
+   /* setup mode array */
+   if (lalParams == NULL)
+   {
+       lalParams_aux = XLALCreateDict();
+   }
+   else{
+       lalParams_aux = XLALDictDuplicate(lalParams);
+   }
+  LALValue *ModeArray = XLALSimInspiralWaveformParamsLookupModeArray(lalParams_aux);
+  
+  /* Check if an mode array is NULL and then populate it with the (2,2) and (2,-2) modes. */
+  if(ModeArray==NULL)
+  {
+    ModeArray = XLALSimInspiralCreateModeArray();
+    /* Activate (2,2) and (2,-2) modes*/
+    XLALSimInspiralModeArrayActivateMode(ModeArray, 2, 2);
+    XLALSimInspiralModeArrayActivateMode(ModeArray, 2, -2);
+    /* Insert ModeArray into lalParams */
+    XLALSimInspiralWaveformParamsInsertModeArray(lalParams_aux, ModeArray);
+    XLALDestroyValue(ModeArray);
+  }
+
+  UINT4 only22 = 1; /* Internal flag for mode array check */
+
+  /* Compute modes dominant modes */
+  SphHarmTimeSeries *hlms = NULL;
+  status = LALSimIMRPhenomTHM_Modes(&hlms, m1_SI, m2_SI, chi1L, chi2L, distance, deltaT, fmin, fRef, phiRef, lalParams_aux, only22);
+  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: Internal function LALSimIMRPhenomTHM_Modes has failed producing the modes.");
+
+  /* Obtain length and epoch from modes (they are the same for all the modes) */
+  INT4 length = hlms->mode->data->length;
+  LIGOTimeGPS epoch = hlms->mode->epoch;
+
+  /* Auxiliary time series for setting the polarisations to zero */
+  REAL8TimeSeries *hplus = XLALCreateREAL8TimeSeries ("hplus", &epoch, 0.0, deltaT, &lalStrainUnit,length);
+  REAL8TimeSeries *hcross = XLALCreateREAL8TimeSeries ("hcross", &epoch, 0.0, deltaT, &lalStrainUnit,length);
+  memset( hplus->data->data, 0, hplus->data->length * sizeof(REAL8) );
+  memset( hcross->data->data, 0, hcross->data->length * sizeof(REAL8) );
+
+  /* Add the modes to the polarisations using lalsim routines.
+  Negative modes are explicitely passed, instead of using the symmetry flag */
+
+  SphHarmTimeSeries *hlms_temp = hlms;
+  while ( hlms_temp )
+  {
+      XLALSimAddMode(hplus, hcross, hlms_temp->mode, inclination, LAL_PI/2. - phiRef, hlms_temp->l, hlms_temp->m, 0);
+      hlms_temp = hlms_temp->next;
+  }
 
   /* Point the output pointers to the relevant time series */
   (*hp) = hplus;
@@ -401,6 +482,7 @@ int LALSimIMRPhenomTHM_Modes(
 
   IMRPhenomTWaveformStruct *pWF;
   pWF    = XLALMalloc(sizeof(IMRPhenomTWaveformStruct));
+  
   status = IMRPhenomTSetWaveformVariables(pWF, m1_SI, m2_SI, chi1L, chi2L, distance, deltaT, fmin, fRef, phiRef, lalParams_aux);
   XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: Internal function IMRPhenomTSetWaveformVariables has failed.");
 
@@ -426,15 +508,14 @@ int LALSimIMRPhenomTHM_Modes(
   REAL8Sequence *time_array = NULL; /****Changes made by Neha****/
   xorb = XLALCreateREAL8Sequence(length);
   phi22 = XLALCreateREAL8Sequence(length);
+
   time_array = XLALCreateREAL8Sequence(length);  /*Changes made by Neha*/
 
   REAL8 start = -2.0/(((m1_SI+m2_SI)/LAL_MSUN_SI)*LAL_MTSUN_SI);
-  printf("The value of minimum time is (in IMRPhenomTHM code): %f\n",start);
-  /***************************************/
   for (UINT4 i = 0; i < length; i++) {
     time_array->data[i] = start + i * pWF->dtM;
   }
-
+  
   /* Compute 22 phase and x=(0.5*omega_22)^(2/3), needed for all modes. 
   Depending on the inspiral region, theta is defined with a fitted t0 parameter or with t0=0. */
 
