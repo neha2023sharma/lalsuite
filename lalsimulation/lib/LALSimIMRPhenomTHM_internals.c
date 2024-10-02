@@ -593,21 +593,24 @@ int IMRPhenomTSetPhase22Coefficients(IMRPhenomTPhase22Struct *pPhase, IMRPhenomT
     Length of early and late inspiral regions are computed since in the case of non-default reconstruction (4 regions) this is needed to compute frequencies
     in both regimes with the two different TaylorT3 implementations. If default reconstruction, it is harmless. */
 
-    pPhase->wflength = floor((tEnd - pPhase->tmin)/wf->dtM);
-    if(tEarly<=pPhase->tmin && tCut>pPhase->tmin)
-    {
-    	pPhase->wflength_insp_late = floor((tCut - pPhase->tmin + wf->dtM)/wf->dtM);
-    	pPhase->wflength_insp_early = 0;
-    }
-    else if(tCut<=pPhase->tmin)
-    {
-    	pPhase->wflength_insp_late = 0;
-    	pPhase->wflength_insp_early = 0;
-    }
-    else{
-    	pPhase->wflength_insp_late = floor((tCut - tEarly + wf->dtM)/wf->dtM);
-    	pPhase->wflength_insp_early = floor((tEarly - pPhase->tmin + wf->dtM)/wf->dtM);
-    }
+    pPhase->wflength = 8000;
+	pPhase->wflength_insp_late = 0;
+	pPhase->wflength_insp_early = 8000;
+
+    // if(tEarly<=pPhase->tmin && tCut>pPhase->tmin)
+    // {
+    // 	pPhase->wflength_insp_late = floor((tCut - pPhase->tmin + wf->dtM)/wf->dtM);
+    // 	pPhase->wflength_insp_early = 0;
+    // }
+    // else if(tCut<=pPhase->tmin)
+    // {
+    // 	pPhase->wflength_insp_late = 0;
+    // 	pPhase->wflength_insp_early = 0;
+    // }
+    // else{
+    // 	pPhase->wflength_insp_late = floor((tCut - tEarly + wf->dtM)/wf->dtM);
+    // 	pPhase->wflength_insp_early = floor((tEarly - pPhase->tmin + wf->dtM)/wf->dtM);
+    // }
     
 
 
