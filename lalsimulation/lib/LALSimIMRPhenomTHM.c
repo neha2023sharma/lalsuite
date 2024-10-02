@@ -509,9 +509,12 @@ int LALSimIMRPhenomTHM_Modes(
   xorb = XLALCreateREAL8Sequence(length);
   phi22 = XLALCreateREAL8Sequence(length);
 
+  REAL8 start = -2.0/(((m1_SI+m2_SI)/LAL_MSUN_SI)*LAL_MTSUN_SI);
+  //REAL8 end = -150.0;
+  //UINT4 length_t = 100;//(UINT4)((end - start) / pWF->dtM) + 1;
   time_array = XLALCreateREAL8Sequence(length);  /*Changes made by Neha*/
 
-  REAL8 start = -2.0/(((m1_SI+m2_SI)/LAL_MSUN_SI)*LAL_MTSUN_SI);
+  
   for (UINT4 i = 0; i < length; i++) {
     time_array->data[i] = start + i * pWF->dtM;
   }
@@ -561,7 +564,7 @@ int LALSimIMRPhenomTHM_Modes(
 
   else // If default reconstruction, only one inspiral region with extended TaylorT3 (with tt0=0) is employed up to the inspiral-merger boundary time
   {
-      for(UINT4 jdx = 0; jdx < length_insp; jdx++)
+      for(UINT4 jdx = 0; jdx < length; jdx++)
       {
         //t = pPhase->tmin + jdx*pWF->dtM;
         //time_array->data[jdx] = t; /*Changes made by Neha */
@@ -583,20 +586,26 @@ int LALSimIMRPhenomTHM_Modes(
 
   /* During the 22 phase merger region, phase and x are also computed because the higher modes end the inspiral at a fixed time,
   which can occur later than the end of the 22 inspiral. */
-  for(UINT4 jdx = length_insp; jdx < length; jdx++)
-  {
-    //t = pPhase->tmin + jdx*pWF->dtM;
-    //time_array->data[jdx] = t; /*Changes made by Neha */
+  // for(UINT4 jdx = length_insp; jdx < length; jdx++)
+  // {
+  //   //t = pPhase->tmin + jdx*pWF->dtM;
+  //   //time_array->data[jdx] = t; /*Changes made by Neha */
 
-    t = time_array->data[jdx];  /*Changes made by Neha */
+  //   t = time_array->data[jdx];  /*Changes made by Neha */
 
-    w22 = IMRPhenomTomega22(t, 0.0, pWF, pPhase);
-    xorb->data[jdx] = pow(0.5*w22,2./3);
+  //   w22 = IMRPhenomTomega22(t, 0.0, pWF, pPhase);
+  //   xorb->data[jdx] = pow(0.5*w22,2./3);
 
-    ph22 = IMRPhenomTPhase22(t, 0.0, pWF, pPhase);
+  //   ph22 = IMRPhenomTPhase22(t, 0.0, pWF, pPhase);
     
-    phi22->data[jdx] = ph22;
-  }
+  //   phi22->data[jdx] = ph22;
+  // }
+
+  // for(UINT4 jdx = length_t; jdx < length; jdx++)
+  // {
+  //   xorb->data[jdx] = 1;
+  //   phi22->data[jdx] = 1;
+  // }
 
   /***** Loop over modes ******/
 
@@ -642,6 +651,8 @@ int LALSimIMRPhenomTHM_Modes(
   LALFree(pPhase);
   LALFree(pWF);
   XLALDestroyREAL8Sequence(phi22);
+
+  XLALDestroyREAL8Sequence(time_array);
 
   XLALDestroyREAL8Sequence(xorb);
 
@@ -691,6 +702,17 @@ int LALSimIMRPhenomTHM_OneMode(
   /* phiref0 is the value of the 22 phase at the reference frequency, which will be substracted in order to impose the chosen orbital reference phase */
   REAL8 thetabarRef = pow(-pPhase->tRef*pWF->eta,-1./8);
   REAL8 phiref0 = IMRPhenomTPhase22(pPhase->tRef, thetabarRef, pWF, pPhase);
+  REAL8Sequence *time_array = NULL; /****Changes made by Neha****/
+
+  REAL8 start = -2.0/(((35))*LAL_MTSUN_SI);
+  //REAL8 end = -150.0;
+  //UINT4 length_t = 100;//(UINT4)((end - start) / pWF->dtM) + 1;
+  time_array = XLALCreateREAL8Sequence(length);  /*Changes made by Neha*/
+
+  
+  for (UINT4 i = 0; i < length; i++) {
+    time_array->data[i] = start + i * pWF->dtM;
+  }
 
   IMRPhenomTHMAmpStruct *pAmplm;
   pAmplm = XLALMalloc(sizeof(IMRPhenomTHMAmpStruct));
@@ -704,7 +726,8 @@ int LALSimIMRPhenomTHM_OneMode(
     /* Mode construction, see equation 2 of THM paper https://dcc.ligo.org/DocDB/0172/P2000524/001/PhenomTHM_SH-3.pdf */
     for(UINT4 jdx = 0; jdx < length; jdx++)
     {
-        t = pPhase->tmin + jdx*pWF->dtM;
+        //t = pPhase->tmin + jdx*pWF->dtM;
+        t = time_array->data[jdx];
         x = (xorb)->data[jdx];
         amplm = pWF->ampfac*cabs(IMRPhenomTHMAmp(t, x, pAmplm));
 
@@ -713,6 +736,11 @@ int LALSimIMRPhenomTHM_OneMode(
 
         ((*hlm)->data->data)[jdx] = wf;
     }
+    // for(UINT4 jdx = length_t; jdx < length; jdx++)
+    // {
+
+    //     ((*hlm)->data->data)[jdx] = 0.0;
+    // }
 	}
 
   else if(emm%2 != 0 && pWF->delta<1E-10 && fabs(pWF->chi1L-pWF->chi2L)<1E-10) // This is for not computing odd modes in the equal BH limit. Instead, they are set to 0 directly.
@@ -755,7 +783,8 @@ int LALSimIMRPhenomTHM_OneMode(
       for(UINT4 jdx = 0; jdx < length; jdx++)
       {
 
-        t = pPhase->tmin + jdx*pWF->dtM;
+        //t = pPhase->tmin + jdx*pWF->dtM;
+        t = time_array->data[jdx];
 
         x = (xorb)->data[jdx]; // 22 frequency, needed for evaluating inspiral amplitude
         amplm = pWF->ampfac*IMRPhenomTHMAmp(t, x, pAmplm);
@@ -891,6 +920,7 @@ INT4 check_input_mode_array_22_THM(LALDict *lalParams)
   }//End of if block
   
   XLALDestroyValue(ModeArray);
+
   
   return XLAL_SUCCESS;
 }
