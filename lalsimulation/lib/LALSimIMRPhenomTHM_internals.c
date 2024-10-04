@@ -540,8 +540,7 @@ int IMRPhenomTSetPhase22Coefficients(IMRPhenomTPhase22Struct *pPhase, IMRPhenomT
         }
     XLAL_CHECK(GSL_SUCCESS == status, XLAL_EFUNC, "Error: Root finder unable to solve minimum time. Minimum frequency may be too high for these parameters. Try reducing fmin below the peak frequency: %.8f Hz. \n", pPhase->omegaPeak/(LAL_TWOPI*wf->M_sec));
 
-    //pPhase->tmin = r; // Minimum time is selected as the solution of the above root finding operation
-	pPhase->tmin = -2.0/((wf->Mtot)*LAL_MTSUN_SI);
+    pPhase->tmin = r; // Minimum time is selected as the solution of the above root finding operation
     gsl_root_fsolver_free(solver); // Free the gsl solver
 
     /* Now we repeat the same procedure for determining the time at which the specified reference frequency occurs. This is needed to set the reference phase */
@@ -593,24 +592,21 @@ int IMRPhenomTSetPhase22Coefficients(IMRPhenomTPhase22Struct *pPhase, IMRPhenomT
     Length of early and late inspiral regions are computed since in the case of non-default reconstruction (4 regions) this is needed to compute frequencies
     in both regimes with the two different TaylorT3 implementations. If default reconstruction, it is harmless. */
 
-    pPhase->wflength = 8000;
-	pPhase->wflength_insp_late = 0;
-	pPhase->wflength_insp_early = 8000;
-
-    // if(tEarly<=pPhase->tmin && tCut>pPhase->tmin)
-    // {
-    // 	pPhase->wflength_insp_late = floor((tCut - pPhase->tmin + wf->dtM)/wf->dtM);
-    // 	pPhase->wflength_insp_early = 0;
-    // }
-    // else if(tCut<=pPhase->tmin)
-    // {
-    // 	pPhase->wflength_insp_late = 0;
-    // 	pPhase->wflength_insp_early = 0;
-    // }
-    // else{
-    // 	pPhase->wflength_insp_late = floor((tCut - tEarly + wf->dtM)/wf->dtM);
-    // 	pPhase->wflength_insp_early = floor((tEarly - pPhase->tmin + wf->dtM)/wf->dtM);
-    // }
+    pPhase->wflength = floor((tEnd - pPhase->tmin)/wf->dtM);
+    if(tEarly<=pPhase->tmin && tCut>pPhase->tmin)
+    {
+    	pPhase->wflength_insp_late = floor((tCut - pPhase->tmin + wf->dtM)/wf->dtM);
+    	pPhase->wflength_insp_early = 0;
+    }
+    else if(tCut<=pPhase->tmin)
+    {
+    	pPhase->wflength_insp_late = 0;
+    	pPhase->wflength_insp_early = 0;
+    }
+    else{
+    	pPhase->wflength_insp_late = floor((tCut - tEarly + wf->dtM)/wf->dtM);
+    	pPhase->wflength_insp_early = floor((tEarly - pPhase->tmin + wf->dtM)/wf->dtM);
+    }
     
 
 
