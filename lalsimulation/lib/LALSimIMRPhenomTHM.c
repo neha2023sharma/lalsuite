@@ -401,6 +401,11 @@ int LALSimIMRPhenomTHM_Modes(
   lalParams_aux = IMRPhenomTHM_setup_mode_array(lalParams_aux);
   LALValue *ModeArray = XLALSimInspiralWaveformParamsLookupModeArray(lalParams_aux);
 
+  REAL8Sequence *time_arr = globalData.TimeArray;
+  size_t length = time_arr->length; //pPhase->wflength;
+  // size_t length_insp_early = pPhase->wflength_insp_early;
+  // size_t length_insp_late =  pPhase->wflength_insp_late;
+
   /* Initialise waveform struct and phase/frequency struct for the 22, needed for any mode */
 
   IMRPhenomTWaveformStruct *pWF;
@@ -412,31 +417,22 @@ int LALSimIMRPhenomTHM_Modes(
   IMRPhenomTPhase22Struct *pPhase;
   pPhase = XLALMalloc(sizeof(IMRPhenomTPhase22Struct));
   status   = IMRPhenomTSetPhase22Coefficients(pPhase, pWF);
-  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: Internal function IMRPhenomTSetPhase22Coefficients has failed.");
 
-  REAL8Sequence *time_arr = globalData.TimeArray;
-
-  /* Length of the required sequence and length of the different inspiral regions of the 22 phase. */
-  size_t length = time_arr->length; //pPhase->wflength;
-  size_t length_insp_early = pPhase->wflength_insp_early;
-  size_t length_insp_late =  pPhase->wflength_insp_late;
   int count = 0;
   for (UINT4 i = 0; i < length; i++) {
-        if (time_arr->data[i] <= -150) {
+        if (time_arr->data[i] <= -pPhase->tCut22) {
             count++;
         } else {
             break;
         }
     }
 
-  size_t length_insp =  count; //length_insp_early + length_insp_late;
-  // for (UINT4 i = length_insp-10; i < length_insp; i++) {
-  //     printf("TimeArray[%d] = %f\n", i, time_arr->data[i]);
-  // }
+  size_t length_insp =  count;
 
-  // for (UINT4 i = length_insp-10; i <length_insp ; i++) {
-  //     printf("Length(in modes function) = %d\n",i+1);
-  // }
+  pPhase->tmin = time_arr->data[0];
+  pPhase->tRef = pPhase->tmin;
+  pPhase->tminSec = pWF->M_sec*pPhase->tmin;
+  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: Internal function IMRPhenomTSetPhase22Coefficients has failed.");
 
 
   /*Initialize time */
@@ -453,47 +449,60 @@ int LALSimIMRPhenomTHM_Modes(
   /* Compute 22 phase and x=(0.5*omega_22)^(2/3), needed for all modes. 
   Depending on the inspiral region, theta is defined with a fitted t0 parameter or with t0=0. */
 
-  // if(pWF->inspVersion!=0) // If reconstruction is non-default, this will compute frequency, phase and PN expansion parameter x from TaylorT3 with fitted t0 for the early inspiral region-
-  // {
-  //   for(UINT4 jdx = 0; jdx < length_insp_early; jdx++)
-  //   {
-  //     //t = pPhase->tmin + jdx*pWF->dtM;
-      
-  //     t = time_arr->data[jdx];
+// if(pWF->inspVersion!=0) // If reconstruction is non-default, this will compute frequency, phase and PN expansion parameter x from TaylorT3 with fitted t0 for the early inspiral region-
+//   {
+//     for(UINT4 jdx = 0; jdx < length_insp_early; jdx++)
+//     {
+//       t = pPhase->tmin + jdx*pWF->dtM;
 
-  //     thetabar = pow(pWF->eta*(pPhase->tt0-t),-1./8);
+//       thetabar = pow(pWF->eta*(pPhase->tt0-t),-1./8);
     
-  //     theta = factheta*thetabar;
+//       theta = factheta*thetabar;
 
-  //     w22 = IMRPhenomTomega22(t, theta, pWF, pPhase);
-  //     xorb->data[jdx] = pow(0.5*w22,2./3);
+//       w22 = IMRPhenomTomega22(t, theta, pWF, pPhase);
+//       xorb->data[jdx] = pow(0.5*w22,2./3);
 
-  //     ph22 = IMRPhenomTPhase22(t, thetabar, pWF, pPhase);
+//       ph22 = IMRPhenomTPhase22(t, thetabar, pWF, pPhase);
     
-  //     phi22->data[jdx] = ph22;
-  //   }
+//       phi22->data[jdx] = ph22;
+//     }
 
-  //   for(UINT4 jdx = length_insp_early; jdx < length_insp; jdx++) // For times later than the early-late inspiral boundary, it computes phase, frequency and x with the extended TaylorT3 (with tt0=0)
-  //   {
-  //     //t = pPhase->tmin + jdx*pWF->dtM;
-      
-  //     t = time_arr->data[jdx];
+//     for(UINT4 jdx = length_insp_early; jdx < length_insp; jdx++) // For times later than the early-late inspiral boundary, it computes phase, frequency and x with the extended TaylorT3 (with tt0=0)
+//     {
+//       t = pPhase->tmin + jdx*pWF->dtM;
 
-  //     thetabar = pow(-pWF->eta*t,-1./8);
+//       thetabar = pow(-pWF->eta*t,-1./8);
     
-  //     theta = factheta*thetabar;
+//       theta = factheta*thetabar;
 
-  //     w22 = IMRPhenomTomega22(t, theta, pWF, pPhase);
-  //     xorb->data[jdx] = pow(0.5*w22,2./3);
+//       w22 = IMRPhenomTomega22(t, theta, pWF, pPhase);
+//       xorb->data[jdx] = pow(0.5*w22,2./3);
 
-  //     ph22 = IMRPhenomTPhase22(t, thetabar, pWF, pPhase);
+//       ph22 = IMRPhenomTPhase22(t, thetabar, pWF, pPhase);
     
-  //     phi22->data[jdx] = ph22;
-  //   }
-  // }
+//       phi22->data[jdx] = ph22;
+//     }
+//   }
 
-  // else // If default reconstruction, only one inspiral region with extended TaylorT3 (with tt0=0) is employed up to the inspiral-merger boundary time
-  // {
+//   else // If default reconstruction, only one inspiral region with extended TaylorT3 (with tt0=0) is employed up to the inspiral-merger boundary time
+//   {
+//       for(UINT4 jdx = 0; jdx < length_insp; jdx++)
+//       {
+//         t = pPhase->tmin + jdx*pWF->dtM;
+
+//         thetabar = pow(-pWF->eta*t,-1./8);
+    
+//         theta = factheta*thetabar;
+
+//         w22 = IMRPhenomTomega22(t, theta, pWF, pPhase);
+//         xorb->data[jdx] = pow(0.5*w22,2./3);
+
+//         ph22 = IMRPhenomTPhase22(t, thetabar, pWF, pPhase);
+    
+//         phi22->data[jdx] = ph22;
+//       }
+//   }
+
   for(UINT4 jdx = 0; jdx < length_insp; jdx++)
   {
     //t = pPhase->tmin + jdx*pWF->dtM;
@@ -511,8 +520,6 @@ int LALSimIMRPhenomTHM_Modes(
 
     phi22->data[jdx] = ph22;
   }
-
-  // }
 
   /* During the 22 phase merger region, phase and x are also computed because the higher modes end the inspiral at a fixed time,
   which can occur later than the end of the 22 inspiral. */
@@ -888,8 +895,6 @@ int XLALSimIMRPhenomT_neha(
   /* Obtain length and epoch from modes (they are the same for all the modes) */
   INT4 length = hlms->mode->data->length;
   LIGOTimeGPS epoch = hlms->mode->epoch;
-  printf("Length(in IMRPhenomT function) = %d\n",length);
-  printf("Epoch: GPS Seconds = %d, GPS Nanoseconds = %d\n", epoch.gpsSeconds, epoch.gpsNanoSeconds);
 
   /* Auxiliary time series for setting the polarisations to zero */
   REAL8TimeSeries *hplus = XLALCreateREAL8TimeSeries ("hplus", &epoch, 0.0, deltaT, &lalStrainUnit,length);
