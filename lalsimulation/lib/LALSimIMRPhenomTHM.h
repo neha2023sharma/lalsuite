@@ -70,10 +70,21 @@ int LALSimIMRPhenomTHM_Modes_neha(
   REAL8 fmin,               /**< starting GW frequency (Hz) */
   REAL8 fRef,               /**< reference GW frequency (Hz) */
   REAL8 phiRef,               /**< reference orbital phase (rad) */
-  REAL8Sequence *TimeArray,
   LALDict *lalParams,            /**< LAL dictionary containing accessory parameters */
+  REAL8Sequence *TimeArray,
   UINT4 only22              /** Internal flag for mode array check */
   );
+
+int LALSimIMRPhenomTHM_OneMode_neha(
+	COMPLEX16TimeSeries **hlm,			/**< [out] Time domain waveform of the requested (l,m) mode */
+	IMRPhenomTWaveformStruct *pWF,		/**< Waveform structure */
+	IMRPhenomTPhase22Struct *pPhase,	/**< 22 phase and frequency structure */
+  REAL8Sequence *phase22,       /**< Values of the 22 phase for the waveform time array */
+	REAL8Sequence *xorb,				/**< Values of the 22 frequency for the waveform time array */
+  REAL8Sequence *TimeArray,
+	UINT4 ell,							/**< l value of the requested mode */
+	UINT4 emm							/**< m value of the requested mode */
+	);
 
 /* Function to adapt user requested mode list to modes included in the model */
 LALDict *IMRPhenomTHM_setup_mode_array(LALDict *lalParams);
