@@ -879,6 +879,59 @@ int XLALSimIMRPhenomT_neha(
   return status;
 }
 
+int XLALSimIMRPhenomT_neha_just_modes(
+  SphHarmTimeSeries **hlms, /**< [out] Dominant mode time series */
+  REAL8 m1_SI,      /**< Mass of companion 1 (kg) */
+  REAL8 m2_SI,      /**< Mass of companion 2 (kg) */
+  REAL8 chi1L,      /**< Dimensionless aligned spin of companion 1 */
+  REAL8 chi2L,      /**< Dimensionless aligned spin of companion 2 */
+  REAL8 distance,   /**< Luminosity distance (m) */
+  REAL8 deltaT,     /**< Sampling interval (s) */
+  REAL8 fmin,       /**< Starting GW frequency (Hz) */
+  REAL8 fRef,       /**< Reference GW frequency (Hz) */
+  REAL8 phiRef,     /**< Reference orbital phase (rad) */
+  REAL8Sequence *TimeArray, /**< Time array for the modes */
+  LALDict *lalParams  /**< LAL dictionary containing accessory parameters */
+)
+{
+  INT4 status;
+
+  /* Use an auxiliary LALDict to avoid overwriting the input argument */
+  LALDict *lalParams_aux;
+  if (lalParams == NULL)
+  {
+      lalParams_aux = XLALCreateDict();
+  }
+  else
+  {
+      lalParams_aux = XLALDictDuplicate(lalParams);
+  }
+
+  /* Setup and check the mode array */
+  LALValue *ModeArray = XLALSimInspiralWaveformParamsLookupModeArray(lalParams_aux);
+  if (ModeArray == NULL)
+  {
+    ModeArray = XLALSimInspiralCreateModeArray();
+    /* Activate only the (2,2) and (2,-2) modes */
+    XLALSimInspiralModeArrayActivateMode(ModeArray, 2, 2);
+    // XLALSimInspiralModeArrayActivateMode(ModeArray, 2, -2);
+    /* Insert ModeArray into lalParams */
+    XLALSimInspiralWaveformParamsInsertModeArray(lalParams_aux, ModeArray);
+    XLALDestroyValue(ModeArray);
+  }
+
+  UINT4 only22 = 1; /* Internal flag for mode array check */
+
+  /* Compute the dominant modes */
+  status = LALSimIMRPhenomTHM_Modes_neha(hlms, m1_SI, m2_SI, chi1L, chi2L, distance, deltaT, fmin, fRef, phiRef, lalParams_aux, TimeArray, only22);
+  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: LALSimIMRPhenomTHM_Modes_neha failed to produce the modes.");
+
+  /* Destroy auxiliary LALDict */
+  XLALDestroyDict(lalParams_aux);
+
+  return status;
+}
+
 SphHarmTimeSeries *XLALSimIMRPhenomTHM_Modes_neha(
   REAL8 m1_SI,								/**< Mass of companion 1 (kg) */
   REAL8 m2_SI,								/**< Mass of companion 2 (kg) */

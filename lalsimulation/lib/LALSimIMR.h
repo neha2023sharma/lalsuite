@@ -1189,6 +1189,21 @@ int XLALSimIMRPhenomT_neha(
   LALDict *lalParams  /**< LAL dictionary containing accessory parameters */
   );
 
+int XLALSimIMRPhenomT_neha_just_modes(
+  SphHarmTimeSeries **hlms, /**< [out] Dominant mode time series */
+  REAL8 m1_SI,      /**< Mass of companion 1 (kg) */
+  REAL8 m2_SI,      /**< Mass of companion 2 (kg) */
+  REAL8 chi1L,      /**< Dimensionless aligned spin of companion 1 */
+  REAL8 chi2L,      /**< Dimensionless aligned spin of companion 2 */
+  REAL8 distance,   /**< Luminosity distance (m) */
+  REAL8 deltaT,     /**< Sampling interval (s) */
+  REAL8 fmin,       /**< Starting GW frequency (Hz) */
+  REAL8 fRef,       /**< Reference GW frequency (Hz) */
+  REAL8 phiRef,     /**< Reference orbital phase (rad) */
+  REAL8Sequence *TimeArray, /**< Time array for the modes */
+  LALDict *lalParams  /**< LAL dictionary containing accessory parameters */
+  );
+
 /* IMRPhenomTPHM Routines */
 /* in module LALSimIMRPhenomTPHM.c */
 
