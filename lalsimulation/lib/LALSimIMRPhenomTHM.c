@@ -879,6 +879,71 @@ int XLALSimIMRPhenomT_neha(
   return status;
 }
 
+
+int XLALSimIMRPhenomTHM_neha(
+  REAL8TimeSeries **hp, /**< [out] TD waveform for plus polarisation */
+  REAL8TimeSeries **hc, /**< [out] TD waveform for cross polarisation */
+  REAL8 m1_SI,      /**< Mass of companion 1 (kg) */
+  REAL8 m2_SI,      /**< Mass of companion 2 (kg) */
+  REAL8 chi1L,      /**< Dimensionless aligned spin of companion 1 */
+  REAL8 chi2L,      /**< Dimensionless aligned spin of companion 2 */
+  REAL8 distance,   /**< Luminosity distance (m) */
+  REAL8 inclination,  /**< inclination of source (rad) */
+  REAL8 deltaT,     /**< sampling interval (s) */
+  REAL8 fmin,     /**< starting GW frequency (Hz) */
+  REAL8 fRef,     /**< reference GW frequency (Hz) */
+  REAL8 phiRef,     /**< reference orbital phase (rad) */
+  REAL8Sequence *TimeArray,
+  LALDict *lalParams	/**< LAL dictionary containing accessory parameters */
+  )
+{
+
+  int status;
+
+  /* Sanity checks pointers. */
+  XLAL_CHECK(NULL != hp, XLAL_EFAULT);
+  XLAL_CHECK(NULL != hc, XLAL_EFAULT);
+  XLAL_CHECK(*hp == NULL, XLAL_EFAULT);
+  XLAL_CHECK(*hc == NULL, XLAL_EFAULT);
+
+  UINT4 only22 = 0; /* Internal flag for mode array check */
+
+  /* Compute modes (if a subset of modes is desired, it should be passed through lalParams) */
+  SphHarmTimeSeries *hlms = NULL;
+  status = LALSimIMRPhenomTHM_Modes_neha(&hlms, m1_SI, m2_SI, chi1L, chi2L, distance, deltaT, fmin, fRef, phiRef, lalParams,TimeArray, only22);
+  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: Internal function LALSimIMRPhenomTHM_Modes has failed producing the modes.");
+
+  /* Obtain length and epoch from modes (they are the same for all the modes) */
+  INT4 length = hlms->mode->data->length;
+  LIGOTimeGPS epoch = hlms->mode->epoch;
+
+  /* Auxiliary time series for setting the polarisations to zero */
+  REAL8TimeSeries *hplus = XLALCreateREAL8TimeSeries ("hplus", &epoch, 0.0, deltaT, &lalStrainUnit,length);
+  REAL8TimeSeries *hcross = XLALCreateREAL8TimeSeries ("hcross", &epoch, 0.0, deltaT, &lalStrainUnit,length);
+  memset( hplus->data->data, 0, hplus->data->length * sizeof(REAL8) );
+  memset( hcross->data->data, 0, hcross->data->length * sizeof(REAL8) );
+
+  /* Add the modes to the polarisations using lalsim routines.
+  Negative modes are explicitely passed, instead of using the symmetry flag */
+
+  SphHarmTimeSeries *hlms_temp = hlms;
+  while ( hlms_temp )
+  {
+      XLALSimAddMode(hplus, hcross, hlms_temp->mode, inclination, LAL_PI/2. - phiRef, hlms_temp->l, hlms_temp->m, 0);
+      hlms_temp = hlms_temp->next;
+  }
+
+  /* Point the output pointers to the relevant time series */
+  (*hp) = hplus;
+  (*hc) = hcross;
+
+  /* Destroy intermediate time series */
+  XLALDestroySphHarmTimeSeries(hlms);
+  XLALDestroySphHarmTimeSeries(hlms_temp);
+
+  return status;
+}
+
 int XLALSimIMRPhenomT_neha_just_modes(
   SphHarmTimeSeries **hlms, /**< [out] Dominant mode time series */
   REAL8 m1_SI,      /**< Mass of companion 1 (kg) */
@@ -1287,7 +1352,7 @@ int LALSimIMRPhenomTHM_OneMode_neha(
       for(UINT4 jdx = 0; jdx < length; jdx++)
       {
 
-        t = pPhase->tmin + jdx*pWF->dtM;
+        t =  TimeArray->data[jdx];
         x = (xorb)->data[jdx]; // 22 frequency, needed for evaluating inspiral amplitude
         amplm = pWF->ampfac*IMRPhenomTHMAmp(t, x, pAmplm);
         
