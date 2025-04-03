@@ -592,47 +592,6 @@ REAL8 XLALSimPhenomPNRafinal_nonprec(  REAL8 m1_SI, REAL8 m2_SI, REAL8 chi1x, RE
 REAL8 XLALSimPhenomPNRwindow(  REAL8 m1_SI, REAL8 m2_SI, REAL8 chi1x, REAL8 chi1y, REAL8 chi1z, REAL8 chi2x, REAL8 chi2y, REAL8 chi2z, LALDict *lalParams );
 REAL8 XLALSimPhenomPNRfRINGEffShiftDividedByEmm(  REAL8 m1_SI, REAL8 m2_SI, REAL8 chi1x, REAL8 chi1y, REAL8 chi1z, REAL8 chi2x, REAL8 chi2y, REAL8 chi2z, LALDict *lalParams );
 REAL8 XLALSimPhenomPNRbetaRD(  REAL8 m1_SI, REAL8 m2_SI, REAL8 chi1x, REAL8 chi1y, REAL8 chi1z, REAL8 chi2x, REAL8 chi2y, REAL8 chi2z, LALDict *lalParams );
-
-// Header formatting for MU1 of (l,m)=(2,2) multipole
-double XLALSimIMRPhenomXCP_MU1_l2m2( double theta, double eta, double a1 );
-// Header formatting for MU2 of (l,m)=(2,2) multipole
-double XLALSimIMRPhenomXCP_MU2_l2m2( double theta, double eta, double a1 );
-// Header formatting for MU3 of (l,m)=(2,2) multipole
-double XLALSimIMRPhenomXCP_MU3_l2m2( double theta, double eta, double a1 );
-// Header formatting for NU4 of (l,m)=(2,2) multipole
-double XLALSimIMRPhenomXCP_NU4_l2m2( double theta, double eta, double a1 );
-// Header formatting for NU5 of (l,m)=(2,2) multipole
-double XLALSimIMRPhenomXCP_NU5_l2m2( double theta, double eta, double a1 );
-// Header formatting for NU6 of (l,m)=(2,2) multipole
-double XLALSimIMRPhenomXCP_NU6_l2m2( double theta, double eta, double a1 );
-// Header formatting for ZETA1 of (l,m)=(2,2) multipole
-double XLALSimIMRPhenomXCP_ZETA1_l2m2( double theta, double eta, double a1 );
-// Header formatting for ZETA2 of (l,m)=(2,2) multipole
-double XLALSimIMRPhenomXCP_ZETA2_l2m2( double theta, double eta, double a1 );
-// Header formatting for NU0 of (l,m)=(2,2) multipole
-double XLALSimIMRPhenomXCP_NU0_l2m2( double theta, double eta, double a1 );
-// Header formatting for MU1 of (l,m)=(3,3) multipole
-double XLALSimIMRPhenomXCP_MU1_l3m3( double theta, double eta, double a1 );
-// Header formatting for MU2 of (l,m)=(3,3) multipole
-double XLALSimIMRPhenomXCP_MU2_l3m3( double theta, double eta, double a1 );
-// Header formatting for MU3 of (l,m)=(3,3) multipole
-double XLALSimIMRPhenomXCP_MU3_l3m3( double theta, double eta, double a1 );
-// Header formatting for MU4 of (l,m)=(3,3) multipole
-double XLALSimIMRPhenomXCP_MU4_l3m3( double theta, double eta, double a1 );
-// Header formatting for NU4 of (l,m)=(3,3) multipole
-double XLALSimIMRPhenomXCP_NU4_l3m3( double theta, double eta, double a1 );
-// Header formatting for NU5 of (l,m)=(3,3) multipole
-double XLALSimIMRPhenomXCP_NU5_l3m3( double theta, double eta, double a1 );
-// Header formatting for NU6 of (l,m)=(3,3) multipole
-double XLALSimIMRPhenomXCP_NU6_l3m3( double theta, double eta, double a1 );
-// Header formatting for ZETA1 of (l,m)=(3,3) multipole
-double XLALSimIMRPhenomXCP_ZETA1_l3m3( double theta, double eta, double a1 );
-// Header formatting for ZETA2 of (l,m)=(3,3) multipole
-double XLALSimIMRPhenomXCP_ZETA2_l3m3( double theta, double eta, double a1 );
-// Header formatting for NU0 of (l,m)=(3,3) multipole
-double XLALSimIMRPhenomXCP_NU0_l3m3( double theta, double eta, double a1 );
-
-
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 int XLALSimIMRPhenomXPFrequencySequence(
@@ -1167,6 +1126,20 @@ SphHarmTimeSeries *XLALSimIMRPhenomTHM_Modes(
   LALDict *lalParams /**< LAL dictionary containing accessory parameters */
   );
 
+SphHarmTimeSeries *XLALSimIMRPhenomTHM_Modes_neha(
+  REAL8 m1_SI,								/**< Mass of companion 1 (kg) */
+  REAL8 m2_SI,								/**< Mass of companion 2 (kg) */
+  REAL8 chi1L,								/**< Dimensionless aligned spin of companion 1 */
+  REAL8 chi2L,								/**< Dimensionless aligned spin of companion 2 */
+  REAL8 distance,							/**< Luminosity distance (m) */
+  REAL8 deltaT,								/**< sampling interval (s) */
+  REAL8 fmin,								/**< starting GW frequency (Hz) */
+  REAL8 fRef,								/**< reference GW frequency (Hz) */
+  REAL8 phiRef,								/**< reference orbital phase (rad) */
+  REAL8Sequence *TimeArray,
+  LALDict *lalParams 						/**< LAL dictionary containing accessory parameters */
+  );
+
 int XLALSimIMRPhenomTHM(
   REAL8TimeSeries **hp, /**< [out] TD waveform for plus polarisation */
   REAL8TimeSeries **hc, /**< [out] TD waveform for cross polarisation */
@@ -1197,6 +1170,55 @@ int XLALSimIMRPhenomT(
   REAL8 fRef,     /**< reference GW frequency (Hz) */
   REAL8 phiRef,     /**< reference orbital phase (rad) */
   LALDict *lalParams  /**< LAL dictionary containing accessory parameters */
+  );
+
+int XLALSimIMRPhenomT_neha(
+  REAL8TimeSeries **hp, /**< [out] TD waveform for plus polarisation */
+  REAL8TimeSeries **hc, /**< [out] TD waveform for cross polarisation */
+  REAL8 m1_SI,      /**< Mass of companion 1 (kg) */
+  REAL8 m2_SI,      /**< Mass of companion 2 (kg) */
+  REAL8 chi1L,      /**< Dimensionless aligned spin of companion 1 */
+  REAL8 chi2L,      /**< Dimensionless aligned spin of companion 2 */
+  REAL8 distance,   /**< Luminosity distance (m) */
+  REAL8 inclination,  /**< inclination of source (rad) */
+  REAL8 deltaT,     /**< sampling interval (s) */
+  REAL8 fmin,     /**< starting GW frequency (Hz) */
+  REAL8 fRef,     /**< reference GW frequency (Hz) */
+  REAL8 phiRef,     /**< reference orbital phase (rad) */
+  REAL8Sequence *TimeArray,
+  LALDict *lalParams  /**< LAL dictionary containing accessory parameters */
+  );
+
+int XLALSimIMRPhenomT_neha_just_modes(
+  SphHarmTimeSeries **hlms, /**< [out] Dominant mode time series */
+  REAL8 m1_SI,      /**< Mass of companion 1 (kg) */
+  REAL8 m2_SI,      /**< Mass of companion 2 (kg) */
+  REAL8 chi1L,      /**< Dimensionless aligned spin of companion 1 */
+  REAL8 chi2L,      /**< Dimensionless aligned spin of companion 2 */
+  REAL8 distance,   /**< Luminosity distance (m) */
+  REAL8 deltaT,     /**< Sampling interval (s) */
+  REAL8 fmin,       /**< Starting GW frequency (Hz) */
+  REAL8 fRef,       /**< Reference GW frequency (Hz) */
+  REAL8 phiRef,     /**< Reference orbital phase (rad) */
+  REAL8Sequence *TimeArray, /**< Time array for the modes */
+  LALDict *lalParams  /**< LAL dictionary containing accessory parameters */
+  );
+
+int XLALSimIMRPhenomTHM_neha(
+  REAL8TimeSeries **hp, /**< [out] TD waveform for plus polarisation */
+  REAL8TimeSeries **hc, /**< [out] TD waveform for cross polarisation */
+  REAL8 m1_SI,      /**< Mass of companion 1 (kg) */
+  REAL8 m2_SI,      /**< Mass of companion 2 (kg) */
+  REAL8 chi1L,      /**< Dimensionless aligned spin of companion 1 */
+  REAL8 chi2L,      /**< Dimensionless aligned spin of companion 2 */
+  REAL8 distance,   /**< Luminosity distance (m) */
+  REAL8 inclination,  /**< inclination of source (rad) */
+  REAL8 deltaT,     /**< sampling interval (s) */
+  REAL8 fmin,     /**< starting GW frequency (Hz) */
+  REAL8 fRef,     /**< reference GW frequency (Hz) */
+  REAL8 phiRef,     /**< reference orbital phase (rad) */
+  REAL8Sequence *TimeArray,
+  LALDict *lalParams	/**< LAL dictionary containing accessory parameters */
   );
 
 /* IMRPhenomTPHM Routines */
