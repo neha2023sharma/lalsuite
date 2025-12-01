@@ -1135,7 +1135,6 @@ int LALSimIMRPhenomTHM_Modes_neha(
   size_t length_insp =  count;
 
   pPhase->tmin = TimeArray->data[0];
-  pPhase->tRef = pPhase->tmin;
   pPhase->tminSec = pWF->M_sec*pPhase->tmin;
 
   XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: Internal function IMRPhenomTSetPhase22Coefficients has failed.");
