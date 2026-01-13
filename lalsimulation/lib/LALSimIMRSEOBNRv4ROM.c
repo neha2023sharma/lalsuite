@@ -54,14 +54,16 @@
 
 #ifdef LAL_HDF5_ENABLED
 #include <lal/H5FileIO.h>
-static const char ROMDataHDF5[] = "SEOBNRv4ROM_v3.0.hdf5";
+static const char ROMDataHDF5[] = "SEOBNRv4ROM_v2.0.hdf5";
+static const INT4 ROMDataHDF5_VERSION_MAJOR = 2;
+static const INT4 ROMDataHDF5_VERSION_MINOR = 0;
+static const INT4 ROMDataHDF5_VERSION_MICRO = 0;
 #endif
 
 #include <lal/LALSimInspiral.h>
 #include <lal/LALSimIMR.h>
 
 #include "LALSimIMRSEOBNRROMUtilities.c"
-#include "LALSimIMRDataUtilities.h"
 
 #include <lal/LALConfig.h>
 #ifdef LAL_PTHREAD_LOCK
@@ -496,7 +498,9 @@ int SEOBNRROMdataDS_Init(
   XLALPrintInfo("ROM metadata\n============\n");
   PrintInfoStringAttribute(file, "Email");
   PrintInfoStringAttribute(file, "Description");
-  ret = ROM_check_canonical_file_basename(file,ROMDataHDF5,"CANONICAL_FILE_BASENAME");
+  ret = ROM_check_version_number(file, ROMDataHDF5_VERSION_MAJOR,
+                                 ROMDataHDF5_VERSION_MINOR,
+                                 ROMDataHDF5_VERSION_MICRO);
 
   XLALFree(path);
   XLALH5FileClose(file);
@@ -1006,7 +1010,7 @@ static int SEOBNRv4ROMCore(
 
   // Evaluate reference phase for setting phiRef correctly
   double phase_change = gsl_spline_eval(spline_phi, fRef_geom, acc_phi) - 2*phiRef;
-
+  
   int ret = XLAL_SUCCESS;
   // Assemble waveform from aplitude and phase
   if (NRTidal_version == NRTidalv2_V) {
@@ -1109,14 +1113,8 @@ static int SEOBNRv4ROMCore(
  *
  * This is a frequency domain model that approximates the time domain SEOBNRv4 model.
  *
- * The binary data HDF5 file (SEOBNRv4ROM_v3.0.hdf5)
- * is available at:
- * https://git.ligo.org/waveforms/software/lalsuite-waveform-data
- * and on Zenodo at: https://zenodo.org/records/14999310.
- * Get the lalsuite-waveform-data repo or put the data into a location in your
- * LAL_DATA_PATH.
- * The data is also available on CIT at /home/lalsimulation_data and and via CVMFS
- * at /cvmfs/shared.storage.igwn.org/igwn/shared/auxiliary/obs_sci/cbc/waveform/lalsimulation_data
+ * The binary data HDF5 file (SEOBNRv4ROM_DS_HI_v1.0.hdf5)
+ * will be available at on LIGO clusters in /home/cbc/.
  * Make sure the files are in your LAL_DATA_PATH.
  *
  * @note Note that due to its construction the iFFT of the ROM has a small (~ 20 M) offset
@@ -1657,14 +1655,7 @@ UNUSED static void SEOBNRv4ROM_Init_LALDATA(void)
 #define datafile ROMDataHDF5
   char *path = XLAL_FILE_RESOLVE_PATH(datafile);
   if (path==NULL)
-    XLAL_ERROR_VOID(XLAL_EIO,
-      "Unable to resolve data file '%s' in $LAL_DATA_PATH.\n"
-      "Note: LALSuite versions >= 7.25 require data files that are publicly available at:\n"
-      "https://git.ligo.org/waveforms/software/lalsuite-waveform-data\n"
-      "and on Zenodo at: https://zenodo.org/records/14999310.\n"
-      "For earlier LALSuite versions, use the files in lalsuite-extra, available at:\n"
-      "https://git.ligo.org/lscsoft/lalsuite-extra\n",
-      datafile);
+    XLAL_ERROR_VOID(XLAL_EIO, "Unable to resolve data file %s in $LAL_DATA_PATH\n", datafile);
   char *dir = dirname(path);
   int ret = SEOBNRv4ROM_Init(dir);
   XLALFree(path);

@@ -26,13 +26,10 @@
  * \brief NRSur7dq4Remnant model for remnant BH mass, spin and recoil kick for
  * generically precessing BBH.
  *
- * The binary data file (NRSur7dq4Remnant_v1.0.h5) is available at:
- * https://git.ligo.org/waveforms/software/lalsuite-waveform-data
- * and on Zenodo at: https://zenodo.org/records/14999310.
- * Get the lalsuite-waveform-data repo or put the data into a location in your
+ * The binary data file is available at:
+ * https://dcc.ligo.org/LIGO-T1900393/public.
+ * Get the lalsuite-extra repo or put the data into a location in your
  * LAL_DATA_PATH.
- * The data is also available on CIT at /home/lalsimulation_data and via CVMFS
- * at /cvmfs/shared.storage.igwn.org/igwn/shared/auxiliary/obs_sci/cbc/waveform/lalsimulation_data
  *
  * **Paper**: https://arxiv.org/abs/1905.09300,
  * https://journals.aps.org/prresearch/abstract/10.1103/PhysRevResearch.1.033015
@@ -77,7 +74,6 @@
 #endif
 
 #include "LALSimNRSurRemnantUtils.h"
-#include "LALSimIMRDataUtilities.h"
 #include "LALSimNRSur7dq4Remnant.h"
 
 
@@ -133,9 +129,6 @@ static void NRSur7dq4Remnant_Init_LALDATA(void) {
     int ret = PrecessingNRSurRemnant_Init(&__lalsim_NRSur7dq4Remnant_data,
             file);
 
-    ret |= ROM_check_canonical_file_basename(file,NRSur7dq4Remnant_DATAFILE,
-            "CANONICAL_FILE_BASENAME");
-
     XLALH5FileClose(file);
     if (ret != XLAL_SUCCESS) {
         XLAL_ERROR_VOID(XLAL_FAILURE, "Failure loading data from %s\n",
@@ -143,7 +136,7 @@ static void NRSur7dq4Remnant_Init_LALDATA(void) {
     }
 
     #else
-    XLAL_ERROR_VOID(XLAL_FAILURE,  "Failure loading data from %s. HDF5 support is not enabled.\n",
+    XLAL_ERROR_VOID(XLAL_FAILURE,  "Failure loading data from %s. HDF5 support is not enabled.\n", 
         NRSur7dq4Remnant_DATAFILE);
     #endif
 }

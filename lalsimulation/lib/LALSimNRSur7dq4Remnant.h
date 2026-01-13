@@ -26,13 +26,10 @@
  * \brief NRSur7dq4Remnant model for remnant BH mass, spin and recoil kick for
  * generically precessing BBH.
  *
- * The binary data file (NRSur7dq4Remnant_v1.0.h5) is available at:
- * https://git.ligo.org/waveforms/software/lalsuite-waveform-data
- * and on Zenodo at: https://zenodo.org/records/14999310.
- * Get the lalsuite-waveform-data repo or put the data into a location in your
+ * The binary data file is available at:
+ * https://dcc.ligo.org/LIGO-T1900393/public.
+ * Get the lalsuite-extra repo or put the data into a location in your
  * LAL_DATA_PATH.
- * The data is also available on CIT at /home/lalsimulation_data and via CVMFS
- * at /cvmfs/shared.storage.igwn.org/igwn/shared/auxiliary/obs_sci/cbc/waveform/lalsimulation_data
  *
  * **Paper**: https://arxiv.org/abs/1905.09300,
  * https://journals.aps.org/prresearch/abstract/10.1103/PhysRevResearch.1.033015
@@ -54,11 +51,8 @@
  *   the training parameter range.
  */
 
-// https://git.ligo.org/waveforms/software/lalsuite-waveform-data, should be placed in $LAL_DATA_PATH.
-// Also on Zenodo at: https://zenodo.org/records/14999310.
-// The data is also available on CIT at /home/lalsimulation_data and via CVMFS
-// at /cvmfs/shared.storage.igwn.org/igwn/shared/auxiliary/obs_sci/cbc/waveform/lalsimulation_data
-static const char NRSur7dq4Remnant_DATAFILE[] = "NRSur7dq4Remnant_v1.0.h5";
+// https://dcc.ligo.org/LIGO-T1900393/public, should be placed in $LAL_DATA_PATH
+static const char NRSur7dq4Remnant_DATAFILE[] = "NRSur7dq4Remnant.h5";
 
 //*************************************************************************/
 //************************* function declarations *************************/
