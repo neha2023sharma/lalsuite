@@ -1199,6 +1199,135 @@ int XLALSimIMRPhenomT(
   LALDict *lalParams  /**< LAL dictionary containing accessory parameters */
   );
 
+/* Functions for Neha */
+SphHarmTimeSeries *XLALSimIMRPhenomTHM_Modes_neha(
+  REAL8 m1_SI,								/**< Mass of companion 1 (kg) */
+  REAL8 m2_SI,								/**< Mass of companion 2 (kg) */
+  REAL8 chi1L,								/**< Dimensionless aligned spin of companion 1 */
+  REAL8 chi2L,								/**< Dimensionless aligned spin of companion 2 */
+  REAL8 distance,							/**< Luminosity distance (m) */
+  REAL8 deltaT,								/**< sampling interval (s) */
+  REAL8 fmin,								/**< starting GW frequency (Hz) */
+  REAL8 fRef,								/**< reference GW frequency (Hz) */
+  REAL8 phiRef,								/**< reference orbital phase (rad) */
+  REAL8Sequence *TimeArray,
+  LALDict *lalParams 						/**< LAL dictionary containing accessory parameters */
+  );
+
+SphHarmTimeSeries *XLALSimIMRPhenomTHM_Modes_neha_truncate(
+  REAL8 m1_SI,								/**< Mass of companion 1 (kg) */
+  REAL8 m2_SI,								/**< Mass of companion 2 (kg) */
+  REAL8 chi1L,								/**< Dimensionless aligned spin of companion 1 */
+  REAL8 chi2L,								/**< Dimensionless aligned spin of companion 2 */
+  REAL8 distance,							/**< Luminosity distance (m) */
+  REAL8 deltaT,								/**< sampling interval (s) */
+  REAL8 fmin,								/**< starting GW frequency (Hz) */
+  REAL8 fRef,								/**< reference GW frequency (Hz) */
+  REAL8 phiRef,								/**< reference orbital phase (rad) */
+  REAL8Sequence *TimeArray,
+  LALDict *lalParams 						/**< LAL dictionary containing accessory parameters */
+  );
+
+int XLALSimIMRPhenomT_neha(
+  REAL8TimeSeries **hp, /**< [out] TD waveform for plus polarisation */
+  REAL8TimeSeries **hc, /**< [out] TD waveform for cross polarisation */
+  REAL8 m1_SI,      /**< Mass of companion 1 (kg) */
+  REAL8 m2_SI,      /**< Mass of companion 2 (kg) */
+  REAL8 chi1L,      /**< Dimensionless aligned spin of companion 1 */
+  REAL8 chi2L,      /**< Dimensionless aligned spin of companion 2 */
+  REAL8 distance,   /**< Luminosity distance (m) */
+  REAL8 inclination,  /**< inclination of source (rad) */
+  REAL8 deltaT,     /**< sampling interval (s) */
+  REAL8 fmin,     /**< starting GW frequency (Hz) */
+  REAL8 fRef,     /**< reference GW frequency (Hz) */
+  REAL8 phiRef,     /**< reference orbital phase (rad) */
+  REAL8Sequence *TimeArray,
+  LALDict *lalParams  /**< LAL dictionary containing accessory parameters */
+  );
+
+int XLALSimIMRPhenomT_neha_just_modes(
+  SphHarmTimeSeries **hlms, /**< [out] Dominant mode time series */
+  REAL8 m1_SI,      /**< Mass of companion 1 (kg) */
+  REAL8 m2_SI,      /**< Mass of companion 2 (kg) */
+  REAL8 chi1L,      /**< Dimensionless aligned spin of companion 1 */
+  REAL8 chi2L,      /**< Dimensionless aligned spin of companion 2 */
+  REAL8 distance,   /**< Luminosity distance (m) */
+  REAL8 deltaT,     /**< Sampling interval (s) */
+  REAL8 fmin,       /**< Starting GW frequency (Hz) */
+  REAL8 fRef,       /**< Reference GW frequency (Hz) */
+  REAL8 phiRef,     /**< Reference orbital phase (rad) */
+  REAL8Sequence *TimeArray, /**< Time array for the modes */
+  LALDict *lalParams  /**< LAL dictionary containing accessory parameters */
+  );
+
+int XLALSimIMRPhenomTHM_neha(
+  REAL8TimeSeries **hp, /**< [out] TD waveform for plus polarisation */
+  REAL8TimeSeries **hc, /**< [out] TD waveform for cross polarisation */
+  REAL8 m1_SI,      /**< Mass of companion 1 (kg) */
+  REAL8 m2_SI,      /**< Mass of companion 2 (kg) */
+  REAL8 chi1L,      /**< Dimensionless aligned spin of companion 1 */
+  REAL8 chi2L,      /**< Dimensionless aligned spin of companion 2 */
+  REAL8 distance,   /**< Luminosity distance (m) */
+  REAL8 inclination,  /**< inclination of source (rad) */
+  REAL8 deltaT,     /**< sampling interval (s) */
+  REAL8 fmin,     /**< starting GW frequency (Hz) */
+  REAL8 fRef,     /**< reference GW frequency (Hz) */
+  REAL8 phiRef,     /**< reference orbital phase (rad) */
+  REAL8Sequence *TimeArray,
+  LALDict *lalParams	/**< LAL dictionary containing accessory parameters */
+  );
+
+int XLALSimIMRPhenomT_neha_truncate(
+  REAL8TimeSeries **hp, /**< [out] TD waveform for plus polarisation */
+  REAL8TimeSeries **hc, /**< [out] TD waveform for cross polarisation */
+  REAL8 m1_SI,      /**< Mass of companion 1 (kg) */
+  REAL8 m2_SI,      /**< Mass of companion 2 (kg) */
+  REAL8 chi1L,      /**< Dimensionless aligned spin of companion 1 */
+  REAL8 chi2L,      /**< Dimensionless aligned spin of companion 2 */
+  REAL8 distance,   /**< Luminosity distance (m) */
+  REAL8 inclination,  /**< inclination of source (rad) */
+  REAL8 deltaT,     /**< sampling interval (s) */
+  REAL8 fmin,     /**< starting GW frequency (Hz) */
+  REAL8 fRef,     /**< reference GW frequency (Hz) */
+  REAL8 phiRef,     /**< reference orbital phase (rad) */
+  REAL8Sequence *TimeArray,
+  LALDict *lalParams  /**< LAL dictionary containing accessory parameters */
+  );
+
+int XLALSimIMRPhenomT_neha_just_modes_truncate(
+  SphHarmTimeSeries **hlms, /**< [out] Dominant mode time series */
+  REAL8 m1_SI,      /**< Mass of companion 1 (kg) */
+  REAL8 m2_SI,      /**< Mass of companion 2 (kg) */
+  REAL8 chi1L,      /**< Dimensionless aligned spin of companion 1 */
+  REAL8 chi2L,      /**< Dimensionless aligned spin of companion 2 */
+  REAL8 distance,   /**< Luminosity distance (m) */
+  REAL8 deltaT,     /**< Sampling interval (s) */
+  REAL8 fmin,       /**< Starting GW frequency (Hz) */
+  REAL8 fRef,       /**< Reference GW frequency (Hz) */
+  REAL8 phiRef,     /**< Reference orbital phase (rad) */
+  REAL8Sequence *TimeArray, /**< Time array for the modes */
+  LALDict *lalParams  /**< LAL dictionary containing accessory parameters */
+  );
+
+int XLALSimIMRPhenomTHM_neha_truncate(
+  REAL8TimeSeries **hp, /**< [out] TD waveform for plus polarisation */
+  REAL8TimeSeries **hc, /**< [out] TD waveform for cross polarisation */
+  REAL8 m1_SI,      /**< Mass of companion 1 (kg) */
+  REAL8 m2_SI,      /**< Mass of companion 2 (kg) */
+  REAL8 chi1L,      /**< Dimensionless aligned spin of companion 1 */
+  REAL8 chi2L,      /**< Dimensionless aligned spin of companion 2 */
+  REAL8 distance,   /**< Luminosity distance (m) */
+  REAL8 inclination,  /**< inclination of source (rad) */
+  REAL8 deltaT,     /**< sampling interval (s) */
+  REAL8 fmin,     /**< starting GW frequency (Hz) */
+  REAL8 fRef,     /**< reference GW frequency (Hz) */
+  REAL8 phiRef,     /**< reference orbital phase (rad) */
+  REAL8Sequence *TimeArray,
+  LALDict *lalParams	/**< LAL dictionary containing accessory parameters */
+  );
+
+
+
 /* IMRPhenomTPHM Routines */
 /* in module LALSimIMRPhenomTPHM.c */
 
