@@ -1433,3 +1433,307 @@ int IMRPhenomTPHM_NumericalEulerAngles(
 
 return status;
 }
+
+/* ==========================================================================
+ * Functions for Neha: precessing Euler angles of IMRPhenomTP/TPHM at the
+ * times of a user-supplied TimeArray (units of M, t = 0 at the peak of the
+ * non-precessing 22 amplitude).
+ *
+ * The angles of the standard model are only defined on its own uniform
+ * time grid t_k = tmin + k*dtM: the numerical angles (PhenomXPrecVersion=300)
+ * come from integrating the spin evolution equations on that grid, and the
+ * analytical ones use a cumulative integral for gamma (GammaVersion=1) and
+ * ringdown angles attached at grid samples. So the angles are computed on
+ * that grid with the unmodified model routines and interpolated to TimeArray:
+ *
+ *   - at times of the standard grid the standard values are returned;
+ *   - in between, cubic splines are used, one per smooth piece, and the
+ *     interval across a join between pieces is interpolated linearly. The
+ *     standard angles have joins where the ringdown angles are attached (a
+ *     jump in value or slope, and a repeated sample at the peak and at the
+ *     MECO time for EulerRDVersion=2), where the numerical angles are joined
+ *     at the reference time (a repeated sample), and, for the numerical
+ *     angles, between the first and second sample (gamma).
+ *
+ * If truncate=0, every point of TimeArray must lie within the standard time
+ * span [tmin, tmin + (wflength-1)*dtM] (within half a grid step), otherwise an
+ * error is raised. If truncate=1, points outside get the boundary values
+ * (the mode amplitudes are zero there).
+ * ========================================================================== */
+
+#define IMRPhenomTPHM_NEHA_MAXJOINS 8
+
+/* Angle interpolant on the standard grid: cubic splines on smooth pieces,
+linear across the joins between pieces. */
+typedef struct tagIMRPhenomTPHM_neha_interp
+{
+  const REAL8 *y;          /* values on the standard grid */
+  size_t n;                /* number of samples of the standard grid */
+  REAL8 tlo;               /* first time of the standard grid */
+  REAL8 dt;                /* grid step (units of M) */
+  size_t npieces;          /* number of smooth pieces */
+  size_t start[IMRPhenomTPHM_NEHA_MAXJOINS+2];   /* first index of each piece; start[npieces] = n */
+  gsl_spline *spline[IMRPhenomTPHM_NEHA_MAXJOINS+1];   /* spline of each piece (NULL for 1-sample pieces) */
+  gsl_interp_accel *acc[IMRPhenomTPHM_NEHA_MAXJOINS+1];
+} IMRPhenomTPHM_neha_interp;
+
+static void IMRPhenomTPHM_neha_interp_init(IMRPhenomTPHM_neha_interp *p, const REAL8 *t, const REAL8 *y, size_t n, REAL8 dt, const size_t *joins, size_t njoins)
+{
+  p->y = y;
+  p->n = n;
+  p->tlo = t[0];
+  p->dt = dt;
+  p->npieces = njoins + 1;
+  p->start[0] = 0;
+  for(size_t k = 0; k < njoins; k++)
+  {
+    p->start[k+1] = joins[k];
+  }
+  p->start[p->npieces] = n;
+
+  for(size_t k = 0; k < p->npieces; k++)
+  {
+    size_t npts = p->start[k+1] - p->start[k];
+    p->spline[k] = NULL;
+    p->acc[k] = NULL;
+    if(npts >= 2)
+    {
+      p->spline[k] = gsl_spline_alloc((npts >= 3) ? gsl_interp_cspline : gsl_interp_linear, npts);
+      gsl_spline_init(p->spline[k], t + p->start[k], y + p->start[k], npts);
+      p->acc[k] = gsl_interp_accel_alloc();
+    }
+  }
+}
+
+static void IMRPhenomTPHM_neha_interp_free(IMRPhenomTPHM_neha_interp *p)
+{
+  for(size_t k = 0; k < p->npieces; k++)
+  {
+    if(p->spline[k]) gsl_spline_free(p->spline[k]);
+    if(p->acc[k]) gsl_interp_accel_free(p->acc[k]);
+  }
+}
+
+/* Value at time t, with tlo <= t <= tlo + (n-1)*dt */
+static REAL8 IMRPhenomTPHM_neha_interp_eval(IMRPhenomTPHM_neha_interp *p, REAL8 t)
+{
+  REAL8 u = (t - p->tlo)/p->dt;
+
+  /* Times of the standard grid (to rounding): standard value */
+  REAL8 k = round(u);
+  if(fabs(u - k) < 1e-6 && k >= 0 && k <= (REAL8)(p->n - 1))
+  {
+    return p->y[(size_t)k];
+  }
+
+  size_t j = (u <= 0) ? 0 : (size_t)floor(u);
+  if(j > p->n - 2) j = p->n - 2;
+
+  size_t piece = 0;
+  while(piece + 1 < p->npieces && j >= p->start[piece+1]) piece++;
+
+  if(j + 1 < p->start[piece+1]) /* t inside a smooth piece */
+  {
+    REAL8 x0 = p->tlo + p->start[piece]*p->dt;
+    REAL8 x1 = p->tlo + (p->start[piece+1]-1)*p->dt;
+    REAL8 tc = (t < x0) ? x0 : ((t > x1) ? x1 : t);
+    return gsl_spline_eval(p->spline[piece], tc, p->acc[piece]);
+  }
+
+  /* t across a join: linear between the two neighbouring grid samples */
+  REAL8 w = u - j;
+  return (1.0 - w)*p->y[j] + w*p->y[j+1];
+}
+
+int IMRPhenomTPHM_EulerAngles_neha(
+  REAL8TimeSeries **alphaTS, REAL8TimeSeries **cosbetaTS, REAL8TimeSeries **gammaTS,
+  REAL8TimeSeries **alphaNatTS, REAL8TimeSeries **cosbetaNatTS, REAL8TimeSeries **gammaNatTS,
+  REAL8 *af, REAL8Sequence *TimeArray, REAL8 m1_SI, REAL8 m2_SI,
+  REAL8 chi1x, REAL8 chi1y, REAL8 chi1z, REAL8 chi2x, REAL8 chi2y, REAL8 chi2z, REAL8 deltaT,
+  IMRPhenomTWaveformStruct *pWF, IMRPhenomTPhase22Struct *pPhase, IMRPhenomXWaveformStruct *pWFX,
+  IMRPhenomXPrecessionStruct *pPrec, INT4 EulerInspVersion, INT4 EulerRDVersion, INT4 EulerGammaVersion,
+  UINT4 evolvedFS, UINT4 reconsMerger, UINT4 truncate);
+
+int IMRPhenomTPHM_EulerAngles_neha(
+  REAL8TimeSeries **alphaTS,               /**< [out] Precessing Euler angle alpha, at the times of TimeArray */
+  REAL8TimeSeries **cosbetaTS,             /**< [out] Precessing Euler angle cos(beta), at the times of TimeArray */
+  REAL8TimeSeries **gammaTS,               /**< [out] Precessing Euler angle gamma, at the times of TimeArray */
+  REAL8TimeSeries **alphaNatTS,            /**< [out] alpha on the standard grid (not returned if NULL) */
+  REAL8TimeSeries **cosbetaNatTS,          /**< [out] cos(beta) on the standard grid (not returned if NULL) */
+  REAL8TimeSeries **gammaNatTS,            /**< [out] gamma on the standard grid (not returned if NULL) */
+  REAL8 *af,                               /**< [out] Final spin employed for the ringdown angles/amplitudes */
+  REAL8Sequence *TimeArray,                /**< Times (units of M) */
+  REAL8 m1_SI,                             /**< Mass of companion 1 (kg) */
+  REAL8 m2_SI,                             /**< Mass of companion 2 (kg) */
+  REAL8 chi1x,                             /**< x component of primary spin */
+  REAL8 chi1y,                             /**< y component of primary spin */
+  REAL8 chi1z,                             /**< z component of primary spin */
+  REAL8 chi2x,                             /**< x component of secondary spin */
+  REAL8 chi2y,                             /**< y component of secondary spin */
+  REAL8 chi2z,                             /**< z component of secondary spin */
+  REAL8 deltaT,                            /**< sampling interval (s), label of the output time series only */
+  IMRPhenomTWaveformStruct *pWF,           /**< IMRPhenomT waveform struct (afinal/afinal_prec updated as in XLALSimIMRPhenomTPHM_CoprecModes) */
+  IMRPhenomTPhase22Struct *pPhase,         /**< IMRPhenomT phase struct, holding the standard tmin and wflength (tRef updated as in XLALSimIMRPhenomTPHM_CoprecModes) */
+  IMRPhenomXWaveformStruct *pWFX,          /**< IMRPhenomX waveform struct */
+  IMRPhenomXPrecessionStruct *pPrec,       /**< IMRPhenomX precessing struct */
+  INT4 EulerInspVersion,                   /**< 0: analytical PN angles. 1: numerical angles (PhenomXPrecVersion=300) */
+  INT4 EulerRDVersion,                     /**< Ringdown angle attachment version, see PNAnalyticalInspiralEulerAngles */
+  INT4 EulerGammaVersion,                  /**< Gamma angle version, see PNAnalyticalInspiralEulerAngles */
+  UINT4 evolvedFS,                         /**< 1 if the final spin is re-evaluated from the evolved spins at the peak (FinalSpinMod=4) */
+  UINT4 reconsMerger,                      /**< Internal merger reconstruction option, see XLALSimIMRPhenomTPHM_CoprecModes */
+  UINT4 truncate                           /**< 0: error outside the standard time span. 1: boundary values outside it. */
+  )
+{
+  INT4 status;
+
+  size_t length_nat = pPhase->wflength;
+  size_t length_req = TimeArray->length;
+
+  XLAL_CHECK(length_nat >= 2, XLAL_EDOM, "Error: waveform is too short to compute precessing Euler angles (standard grid length < 2).\n");
+
+  /* ---- x(t) of the 22 on the standard grid (as in XLALSimIMRPhenomTPHM_CoprecModes) ---- */
+  size_t length_insp_early = pPhase->wflength_insp_early;
+  size_t length_insp_late  = pPhase->wflength_insp_late;
+  size_t length_insp       = length_insp_early + length_insp_late;
+
+  REAL8Sequence *xorb_nat = XLALCreateREAL8Sequence(length_nat);
+  REAL8Sequence *tnat     = XLALCreateREAL8Sequence(length_nat);
+
+  REAL8 t, thetabar, theta, w22;
+  REAL8 factheta = pow(5.0,1./8);
+
+  for(UINT4 jdx = 0; jdx < length_nat; jdx++)
+  {
+    t = pPhase->tmin + jdx*pWF->dtM;
+    tnat->data[jdx] = t;
+    theta = 0.0;
+    if(jdx < length_insp)
+    {
+      if(pWF->inspVersion!=0 && jdx < length_insp_early)
+      {
+        thetabar = pow(pWF->eta*(pPhase->tt0-t),-1./8);
+      }
+      else
+      {
+        thetabar = pow(-pWF->eta*t,-1./8);
+      }
+      theta = factheta*thetabar;
+    }
+    w22 = IMRPhenomTomega22(t, theta, pWF, pPhase);
+    xorb_nat->data[jdx] = pow(0.5*w22,2./3);
+  }
+
+  /* ---- Checks of tmin and tRef (as in XLALSimIMRPhenomTPHM_CoprecModes) ---- */
+  if(pPhase->tmin>=-10*pWF->dtM)
+  {
+    EulerInspVersion = 0;
+    EulerRDVersion = 1;
+    EulerGammaVersion = 0;
+    XLAL_PRINT_WARNING("Waveform only contains ringdown, version 300 not meaningful. Defaulting to analytical ringdown angles (EulerInspVersion=0, EulerRDVersion=1.)\n");
+  }
+  else if(pPhase->tRef>=-8*pWF->dtM)
+  {
+    pPhase->tRef = (-8*pWF->dtM > pPhase->tmin) ? (-8*pWF->dtM) : pPhase->tmin; /* MAX(-8*dtM, tmin) */
+    XLAL_PRINT_WARNING("Waveform contains pre-peak cycles but reference frequency is specified post-peak, which may be not meaningful. Reference frequency will be set close before the peak. \n");
+  }
+
+  /* ---- Angles on the standard grid, with the unmodified model routines ---- */
+  LIGOTimeGPS epoch_nat = LIGOTIMEGPSZERO;
+  XLALGPSAdd(&epoch_nat, pPhase->tmin*pWF->M_sec);
+
+  REAL8TimeSeries *alphaNat   = XLALCreateREAL8TimeSeries("alphaPtoJ",   &epoch_nat, 0.0, deltaT, &lalStrainUnit, length_nat);
+  REAL8TimeSeries *cosbetaNat = XLALCreateREAL8TimeSeries("cosbetaPtoJ", &epoch_nat, 0.0, deltaT, &lalStrainUnit, length_nat);
+  REAL8TimeSeries *gammaNat   = XLALCreateREAL8TimeSeries("epsilonPtoJ", &epoch_nat, 0.0, deltaT, &lalStrainUnit, length_nat);
+
+  if(EulerInspVersion==1)
+  {
+    REAL8 af_evolved = 0.0;
+    status = IMRPhenomTPHM_NumericalEulerAngles(&alphaNat, &cosbetaNat, &gammaNat, &af_evolved, xorb_nat, pPhase->dtM, m1_SI, m2_SI, chi1x, chi1y, chi1z, chi2x, chi2y, chi2z, pPhase->tmin, pWF, pPhase, pPrec);
+    XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: Internal function IMRPhenomTPHM_NumericalEulerAngles has failed.\n");
+    if(evolvedFS==1)
+    {
+      pWF->afinal_prec = af_evolved;
+      if(!(reconsMerger==1))
+      {
+        pWF->afinal = af_evolved;
+      }
+    }
+  }
+  else
+  {
+    status = PNAnalyticalInspiralEulerAngles(&alphaNat, &cosbetaNat, &gammaNat, xorb_nat, pWF, pPhase, pWFX, pPrec, EulerRDVersion, EulerGammaVersion);
+    XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: Internal function PNAnalyticalInspiralEulerAngles has failed.\n");
+  }
+  (*af) = pWF->afinal;
+
+  /* ---- Joins between smooth pieces of the standard angles (indices of the first sample after a join) ----
+  - a repeated alpha sample (ringdown attachment of the analytical angles at the peak and at the
+    MECO time, reference time of the numerical angles);
+  - start of the constant cos(beta) of the ringdown angles (copy of the last value before it);
+  - numerical angles: gamma between the first and second sample. */
+  size_t joins[IMRPhenomTPHM_NEHA_MAXJOINS];
+  size_t njoins = 0;
+  const REAL8 *al = alphaNat->data->data;
+  const REAL8 *cb = cosbetaNat->data->data;
+
+  size_t r = length_nat - 1;
+  while(r > 0 && cb[r-1] == cb[length_nat-1]) r--;
+  size_t rdjoin = (r >= 2 && r + 1 < length_nat - 1) ? r + 1 : 0;
+
+  for(size_t k = 1; k < length_nat && njoins < IMRPhenomTPHM_NEHA_MAXJOINS; k++)
+  {
+    if((k == 1 && EulerInspVersion == 1) || al[k] == al[k-1] || k == rdjoin)
+    {
+      joins[njoins++] = k;
+    }
+  }
+  /* ---- Interpolation to TimeArray ---- */
+  IMRPhenomTPHM_neha_interp ialpha, icosbeta, igamma;
+  IMRPhenomTPHM_neha_interp_init(&ialpha,   tnat->data, alphaNat->data->data,   length_nat, pWF->dtM, joins, njoins);
+  IMRPhenomTPHM_neha_interp_init(&icosbeta, tnat->data, cosbetaNat->data->data, length_nat, pWF->dtM, joins, njoins);
+  IMRPhenomTPHM_neha_interp_init(&igamma,   tnat->data, gammaNat->data->data,   length_nat, pWF->dtM, joins, njoins);
+
+  LIGOTimeGPS epoch_req = LIGOTIMEGPSZERO;
+  XLALGPSAdd(&epoch_req, pWF->M_sec*TimeArray->data[0]);
+
+  *alphaTS   = XLALCreateREAL8TimeSeries("alphaPtoJ",   &epoch_req, 0.0, deltaT, &lalStrainUnit, length_req);
+  *cosbetaTS = XLALCreateREAL8TimeSeries("cosbetaPtoJ", &epoch_req, 0.0, deltaT, &lalStrainUnit, length_req);
+  *gammaTS   = XLALCreateREAL8TimeSeries("epsilonPtoJ", &epoch_req, 0.0, deltaT, &lalStrainUnit, length_req);
+
+  REAL8 tlo = tnat->data[0];
+  REAL8 thi = tnat->data[length_nat-1];
+  REAL8 domain_tol = 0.5*pWF->dtM;
+
+  for(UINT4 jdx = 0; jdx < length_req; jdx++)
+  {
+    REAL8 treq = TimeArray->data[jdx];
+
+    if(treq < tlo - domain_tol || treq > thi + domain_tol)
+    {
+      XLAL_CHECK(truncate==1, XLAL_EDOM, "Error: requested time %g lies outside the time span [%g, %g] of the precessing Euler angles. Use the _truncate version for times outside it.\n", treq, tlo, thi);
+    }
+    if(treq < tlo) treq = tlo;
+    if(treq > thi) treq = thi;
+
+    (*alphaTS)->data->data[jdx]   = IMRPhenomTPHM_neha_interp_eval(&ialpha,   treq);
+    (*cosbetaTS)->data->data[jdx] = IMRPhenomTPHM_neha_interp_eval(&icosbeta, treq);
+    (*gammaTS)->data->data[jdx]   = IMRPhenomTPHM_neha_interp_eval(&igamma,   treq);
+
+    /* cubic spline overshoot could push cos(beta) marginally outside [-1, 1] */
+    if((*cosbetaTS)->data->data[jdx] > 1.0)  (*cosbetaTS)->data->data[jdx] = 1.0;
+    if((*cosbetaTS)->data->data[jdx] < -1.0) (*cosbetaTS)->data->data[jdx] = -1.0;
+  }
+
+  IMRPhenomTPHM_neha_interp_free(&ialpha);
+  IMRPhenomTPHM_neha_interp_free(&icosbeta);
+  IMRPhenomTPHM_neha_interp_free(&igamma);
+
+  if(alphaNatTS)   { *alphaNatTS = alphaNat; }     else { XLALDestroyREAL8TimeSeries(alphaNat); }
+  if(cosbetaNatTS) { *cosbetaNatTS = cosbetaNat; } else { XLALDestroyREAL8TimeSeries(cosbetaNat); }
+  if(gammaNatTS)   { *gammaNatTS = gammaNat; }     else { XLALDestroyREAL8TimeSeries(gammaNat); }
+
+  XLALDestroyREAL8Sequence(xorb_nat);
+  XLALDestroyREAL8Sequence(tnat);
+
+  return XLAL_SUCCESS;
+}

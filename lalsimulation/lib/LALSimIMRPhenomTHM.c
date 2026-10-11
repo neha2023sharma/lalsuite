@@ -790,3 +790,582 @@ INT4 check_input_mode_array_22_THM(LALDict *lalParams)
 
   return XLAL_SUCCESS;
 }
+
+/* ========================================================================== */
+/*                            Functions for Neha                              */
+/* ========================================================================== */
+/*
+ * IMRPhenomT / IMRPhenomTHM modes and polarisations evaluated at the times of
+ * a user-supplied TimeArray: times in units of the total mass M (t[s]/M_sec),
+ * with t = 0 at the peak of the 22 amplitude, any spacing.
+ *
+ * - *_neha:          the model is evaluated at every requested time, also
+ *                    outside the time span of the standard waveform (the
+ *                    closed-form ansatz is extended there).
+ * - *_neha_truncate: samples outside the time span of the standard waveform,
+ *                    i.e. before the time at which the 22 frequency equals
+ *                    fmin and after the last ringdown sample, are set to 0.
+ *
+ * On the time grid of the standard waveform (tmin + k*dtM) both give the
+ * standard waveform. The output time series have epoch M_sec*TimeArray[0];
+ * their deltaT is only a label, the samples are at the times of TimeArray.
+ */
+
+/**
+ * 22 phase and x = (0.5*omega_22)^(2/3) at the times of TimeArray, as in
+ * LALSimIMRPhenomTHM_Modes: inspiral times (t <= tCut22) use the PN time
+ * parameter theta (with the fitted t0 before tEarly if PhenomTHMInspiralVersion != 0).
+ */
+int LALSimIMRPhenomT_neha_Phase22(
+  REAL8Sequence *phi22,               /**< [out] 22 phase at the times of TimeArray */
+  REAL8Sequence *xorb,                /**< [out] x = (0.5*omega_22)^(2/3) at the times of TimeArray */
+  REAL8Sequence *TimeArray,           /**< Times (units of M) */
+  IMRPhenomTWaveformStruct *pWF,      /**< Waveform structure */
+  IMRPhenomTPhase22Struct *pPhase     /**< 22 phase and frequency structure */
+  )
+{
+  REAL8 factheta = pow(5.0,1./8);
+
+  for(UINT4 jdx = 0; jdx < TimeArray->length; jdx++)
+  {
+    REAL8 t = TimeArray->data[jdx];
+    REAL8 thetabar = 0.0;
+    REAL8 theta = 0.0;
+
+    if(t <= pPhase->tCut22)
+    {
+      if(pWF->inspVersion!=0 && t <= pPhase->tEarly)
+      {
+        thetabar = pow(pWF->eta*(pPhase->tt0-t),-1./8);
+      }
+      else
+      {
+        thetabar = pow(-pWF->eta*t,-1./8);
+      }
+      theta = factheta*thetabar;
+    }
+
+    xorb->data[jdx] = pow(0.5*IMRPhenomTomega22(t, theta, pWF, pPhase),2./3);
+    phi22->data[jdx] = IMRPhenomTPhase22(t, thetabar, pWF, pPhase);
+  }
+
+  return XLAL_SUCCESS;
+}
+
+/**
+ * Polarisations from a list of modes, as in XLALSimIMRPhenomT/THM/TP/TPHM.
+ */
+int LALSimIMRPhenomT_neha_AddModes(
+  REAL8TimeSeries **hp,               /**< [out] TD waveform for plus polarisation */
+  REAL8TimeSeries **hc,               /**< [out] TD waveform for cross polarisation */
+  SphHarmTimeSeries *hlms,            /**< Modes */
+  REAL8 inclination,                  /**< inclination of source (rad) */
+  REAL8 phiRef,                       /**< reference orbital phase (rad) */
+  REAL8 deltaT                        /**< sampling interval (s), label only */
+  )
+{
+  XLAL_CHECK(NULL != hp, XLAL_EFAULT);
+  XLAL_CHECK(NULL != hc, XLAL_EFAULT);
+  XLAL_CHECK(*hp == NULL, XLAL_EFAULT);
+  XLAL_CHECK(*hc == NULL, XLAL_EFAULT);
+
+  LIGOTimeGPS epoch = hlms->mode->epoch;
+  size_t length = hlms->mode->data->length;
+
+  REAL8TimeSeries *hplus = XLALCreateREAL8TimeSeries("hplus", &epoch, 0.0, deltaT, &lalStrainUnit, length);
+  REAL8TimeSeries *hcross = XLALCreateREAL8TimeSeries("hcross", &epoch, 0.0, deltaT, &lalStrainUnit, length);
+  memset(hplus->data->data, 0, hplus->data->length * sizeof(REAL8));
+  memset(hcross->data->data, 0, hcross->data->length * sizeof(REAL8));
+
+  /* Negative modes are explicitely passed, instead of using the symmetry flag */
+  for(SphHarmTimeSeries *hlm = hlms; hlm; hlm = hlm->next)
+  {
+    XLALSimAddMode(hplus, hcross, hlm->mode, inclination, LAL_PI/2. - phiRef, hlm->l, hlm->m, 0);
+  }
+
+  (*hp) = hplus;
+  (*hc) = hcross;
+
+  return XLAL_SUCCESS;
+}
+
+/**
+ * One mode at the times of TimeArray. Same construction as
+ * LALSimIMRPhenomTHM_OneMode, with t = TimeArray->data[jdx] instead of
+ * t = tmin + jdx*dtM.
+ */
+int LALSimIMRPhenomTHM_OneMode_neha(
+  COMPLEX16TimeSeries **hlm,          /**< [out] Time domain waveform of the requested (l,m) mode */
+  IMRPhenomTWaveformStruct *pWF,      /**< Waveform structure */
+  IMRPhenomTPhase22Struct *pPhase,    /**< 22 phase and frequency structure */
+  REAL8Sequence *phase22,             /**< Values of the 22 phase at the times of TimeArray */
+  REAL8Sequence *xorb,                /**< Values of x at the times of TimeArray */
+  REAL8Sequence *TimeArray,           /**< Times (units of M) */
+  UINT4 ell,                          /**< l value of the requested mode */
+  UINT4 emm                           /**< m value of the requested mode */
+  )
+{
+  UINT4 status;
+  size_t length = TimeArray->length;
+  REAL8 t, x, phi22, philm;
+  COMPLEX16 amplm;
+
+  LIGOTimeGPS epoch = LIGOTIMEGPSZERO;
+  XLALGPSAdd(&epoch, pPhase->tminSec);
+  *hlm = XLALCreateCOMPLEX16TimeSeries("hlm: TD waveform", &epoch, 0.0, pWF->deltaT, &lalStrainUnit, length);
+
+  /* phiref0 is the value of the 22 phase at the reference frequency, which will be substracted in order to impose the chosen orbital reference phase */
+  REAL8 thetabarRef = pow(-pPhase->tRef*pWF->eta,-1./8);
+  REAL8 phiref0 = IMRPhenomTPhase22(pPhase->tRef, thetabarRef, pWF, pPhase);
+
+  IMRPhenomTHMAmpStruct *pAmplm;
+  pAmplm = XLALMalloc(sizeof(IMRPhenomTHMAmpStruct));
+  status = IMRPhenomTSetHMAmplitudeCoefficients(ell, emm, pAmplm, pPhase, pWF);
+  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: IMRPhenomTSetHMAmplitudeCoefficients failed for %d,%d.\n", ell, emm);
+
+  if(ell==2 && emm==2)
+  {
+    for(UINT4 jdx = 0; jdx < length; jdx++)
+    {
+      t = TimeArray->data[jdx];
+      x = xorb->data[jdx];
+      amplm = pWF->ampfac*cabs(IMRPhenomTHMAmp(t, x, pAmplm));
+      phi22 = phase22->data[jdx] - phiref0;
+      (*hlm)->data->data[jdx] = amplm*cexp(-I*phi22);
+    }
+  }
+  else if(emm%2 != 0 && pWF->delta<1E-10 && fabs(pWF->chi1L-pWF->chi2L)<1E-10) /* odd modes vanish in the equal BH limit */
+  {
+    memset((*hlm)->data->data, 0, (*hlm)->data->length * sizeof(COMPLEX16));
+  }
+  else
+  {
+    IMRPhenomTHMPhaseStruct *pPhaselm;
+    pPhaselm = XLALMalloc(sizeof(IMRPhenomTHMPhaseStruct));
+    status = IMRPhenomTSetHMPhaseCoefficients(ell, emm, pPhaselm, pPhase, pAmplm, pWF);
+    XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: IMRPhenomTSetHMPhaseCoefficients failed for %d,%d.\n", ell, emm);
+
+    /* Phase offset, as explained in eq 13 of PhenomTHM paper */
+    REAL8 phoff = 0.0;
+    if(ell==2 && emm==1) { phoff = 0.5*LAL_PI; }
+    else if(ell==3 && emm==3) { phoff = -0.5*LAL_PI; }
+    else if(ell==5 && emm==5) { phoff = 0.5*LAL_PI; }
+    else if(ell==4 && emm==4) { phoff = LAL_PI; }
+
+    for(UINT4 jdx = 0; jdx < length; jdx++)
+    {
+      t = TimeArray->data[jdx];
+      x = xorb->data[jdx];
+      amplm = pWF->ampfac*IMRPhenomTHMAmp(t, x, pAmplm);
+      phi22 = phase22->data[jdx];
+      philm = IMRPhenomTHMPhase(t, phi22, pPhaselm, pAmplm) - (emm/2.0)*phiref0 - phoff;
+      (*hlm)->data->data[jdx] = amplm*cexp(-I*philm);
+    }
+    LALFree(pPhaselm);
+  }
+
+  LALFree(pAmplm);
+
+  return status;
+}
+
+/**
+ * As LALSimIMRPhenomTHM_OneMode_neha, with the samples outside the time span
+ * of the standard waveform, [tmin, tmin + (wflength-1)*dtM], set to 0.
+ * pPhase must hold the standard tmin and wflength (set by IMRPhenomTSetPhase22Coefficients).
+ */
+int LALSimIMRPhenomTHM_OneMode_neha_truncate(
+  COMPLEX16TimeSeries **hlm,          /**< [out] Time domain waveform of the requested (l,m) mode */
+  IMRPhenomTWaveformStruct *pWF,      /**< Waveform structure */
+  IMRPhenomTPhase22Struct *pPhase,    /**< 22 phase and frequency structure */
+  REAL8Sequence *phase22,             /**< Values of the 22 phase at the times of TimeArray */
+  REAL8Sequence *xorb,                /**< Values of x at the times of TimeArray */
+  REAL8Sequence *TimeArray,           /**< Times (units of M) */
+  UINT4 ell,                          /**< l value of the requested mode */
+  UINT4 emm                           /**< m value of the requested mode */
+  )
+{
+  UINT4 status = LALSimIMRPhenomTHM_OneMode_neha(hlm, pWF, pPhase, phase22, xorb, TimeArray, ell, emm);
+  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: LALSimIMRPhenomTHM_OneMode_neha failed for %d,%d.\n", ell, emm);
+
+  /* First and last sample of the standard waveform. The tolerance absorbs rounding in a
+  TimeArray built from the standard time grid, including the 1 ns rounding of the epoch of
+  the standard time series (LIGOTimeGPS). */
+  REAL8 tol = 1e-6*pWF->dtM + 1e-9/pWF->M_sec;
+  REAL8 tstart = pPhase->tmin - tol;
+  REAL8 tend = pPhase->tmin + (pPhase->wflength - 1)*pWF->dtM + tol;
+
+  for(UINT4 jdx = 0; jdx < TimeArray->length; jdx++)
+  {
+    if(TimeArray->data[jdx] < tstart || TimeArray->data[jdx] > tend)
+    {
+      (*hlm)->data->data[jdx] = 0.0;
+    }
+  }
+
+  return status;
+}
+
+/* Modes at the times of TimeArray; same as LALSimIMRPhenomTHM_Modes otherwise. */
+static int IMRPhenomTHM_Modes_neha_engine(
+  SphHarmTimeSeries **hlms, REAL8 m1_SI, REAL8 m2_SI, REAL8 chi1L, REAL8 chi2L, REAL8 distance,
+  REAL8 deltaT, REAL8 fmin, REAL8 fRef, REAL8 phiRef, LALDict *lalParams, REAL8Sequence *TimeArray,
+  UINT4 only22, UINT4 truncate)
+{
+  /* Pointers sanity check */
+  XLAL_CHECK(NULL != hlms, XLAL_EFAULT);
+  XLAL_CHECK(*hlms == NULL, XLAL_EFAULT);
+  XLAL_CHECK(NULL != TimeArray, XLAL_EFAULT, "Error: TimeArray must not be NULL.\n");
+  XLAL_CHECK(TimeArray->length > 0, XLAL_EDOM, "Error: TimeArray is empty.\n");
+
+  /* Sanity checks */
+  if(fRef  <  0.0) { XLAL_ERROR(XLAL_EDOM, "fRef_In must be positive or set to 0 to ignore.\n");  }
+  if(deltaT   <= 0.0) { XLAL_ERROR(XLAL_EDOM, "deltaF must be positive.\n");                         }
+  if(m1_SI    <= 0.0) { XLAL_ERROR(XLAL_EDOM, "m1 must be positive.\n");                             }
+  if(m2_SI    <= 0.0) { XLAL_ERROR(XLAL_EDOM, "m2 must be positive.\n");                             }
+  if(fmin    <= 0.0) { XLAL_ERROR(XLAL_EDOM, "f_min must be positive.\n");                          }
+  if(distance <= 0.0) { XLAL_ERROR(XLAL_EDOM, "Distance must be positive and greater than 0.\n");    }
+
+  if(only22==0)
+  {
+    XLAL_CHECK(check_input_mode_array_THM(lalParams) == XLAL_SUCCESS, XLAL_EFAULT, "Not available mode chosen.\n");
+  }
+  else if(only22==1)
+  {
+    XLAL_CHECK(check_input_mode_array_22_THM(lalParams) == XLAL_SUCCESS, XLAL_EFAULT, "Not available mode chosen.\n");
+  }
+
+  REAL8 mass_ratio;
+  if(m1_SI > m2_SI)
+  {
+   mass_ratio = m1_SI / m2_SI;
+  }
+  else
+  {
+   mass_ratio = m2_SI / m1_SI;
+  }
+  if(mass_ratio > 20.0 && chi1L < 0.9 && m2_SI/LAL_MSUN_SI >= 0.5  ) { XLAL_PRINT_INFO("Warning: Extrapolating outside of Numerical Relativity calibration domain."); }
+  if(mass_ratio > 20.0 && (chi1L >= 0.9 || m2_SI/LAL_MSUN_SI < 0.5) ) { XLAL_PRINT_INFO("Warning: Model can be pathological at these parameters."); }
+  if(mass_ratio > 200. && fabs(mass_ratio - 200) > 1e-12) { XLAL_ERROR(XLAL_EDOM, "ERROR: Model not valid at mass ratios beyond 200."); }
+  if(fabs(chi1L) > 0.99 || fabs(chi2L) > 0.99) { XLAL_PRINT_INFO("Warning: Extrapolating to extremal spins, model is not trusted."); }
+
+  INT4 status;
+
+  /* Use an auxiliar laldict to not overwrite the input argument */
+  LALDict *lalParams_aux;
+  if (lalParams == NULL)
+  {
+      lalParams_aux = XLALCreateDict();
+  }
+  else{
+      lalParams_aux = XLALDictDuplicate(lalParams);
+  }
+  lalParams_aux = IMRPhenomTHM_setup_mode_array(lalParams_aux);
+  LALValue *ModeArray = XLALSimInspiralWaveformParamsLookupModeArray(lalParams_aux);
+
+  IMRPhenomTWaveformStruct *pWF;
+  pWF    = XLALMalloc(sizeof(IMRPhenomTWaveformStruct));
+  status = IMRPhenomTSetWaveformVariables(pWF, m1_SI, m2_SI, chi1L, chi2L, distance, deltaT, fmin, fRef, phiRef, lalParams_aux);
+  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: Internal function IMRPhenomTSetWaveformVariables has failed.");
+
+  IMRPhenomTPhase22Struct *pPhase;
+  pPhase = XLALMalloc(sizeof(IMRPhenomTPhase22Struct));
+  status   = IMRPhenomTSetPhase22Coefficients(pPhase, pWF);
+  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: Internal function IMRPhenomTSetPhase22Coefficients has failed.");
+
+  /* Epoch of the output: first requested time. pPhase->tmin keeps the start of the standard waveform. */
+  pPhase->tminSec = pWF->M_sec*TimeArray->data[0];
+
+  size_t length = TimeArray->length;
+  REAL8Sequence *phi22 = XLALCreateREAL8Sequence(length);
+  REAL8Sequence *xorb = XLALCreateREAL8Sequence(length);
+  status = LALSimIMRPhenomT_neha_Phase22(phi22, xorb, TimeArray, pWF, pPhase);
+  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: LALSimIMRPhenomT_neha_Phase22 has failed.");
+
+  /***** Loop over modes ******/
+  INT4 posMode, negMode;
+  for (UINT4 ell = 2; ell <= 5; ell++)
+  {
+    for (UINT4 emm = 1; emm <= ell; emm++)
+    { /* Loop over only positive m is intentional.*/
+      posMode = XLALSimInspiralModeArrayIsModeActive(ModeArray, ell, emm);
+      negMode = XLALSimInspiralModeArrayIsModeActive(ModeArray, ell, -emm);
+      if ( posMode != 1 && negMode != 1)
+      {
+        continue;
+      }
+
+      COMPLEX16TimeSeries *tmp_mode = NULL;
+      if(truncate==1)
+      {
+        status = LALSimIMRPhenomTHM_OneMode_neha_truncate(&tmp_mode, pWF, pPhase, phi22, xorb, TimeArray, ell, emm);
+      }
+      else
+      {
+        status = LALSimIMRPhenomTHM_OneMode_neha(&tmp_mode, pWF, pPhase, phi22, xorb, TimeArray, ell, emm);
+      }
+      XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: generating mode (%d,%d) has failed.\n", ell, emm);
+
+      if(posMode==1)
+      {
+        *hlms = XLALSphHarmTimeSeriesAddMode(*hlms, tmp_mode, ell, emm);
+      }
+      if(negMode==1) /* negative m from the aligned spin symmetry */
+      {
+        for(UINT4 jdx = 0; jdx < length; jdx++)
+        {
+          tmp_mode->data->data[jdx] = pow(-1,ell)*conj(tmp_mode->data->data[jdx]);
+        }
+        *hlms = XLALSphHarmTimeSeriesAddMode(*hlms, tmp_mode, ell, -emm);
+      }
+      XLALDestroyCOMPLEX16TimeSeries(tmp_mode);
+    }
+  }
+
+  XLALDestroyValue(ModeArray);
+  LALFree(pPhase);
+  LALFree(pWF);
+  XLALDestroyREAL8Sequence(phi22);
+  XLALDestroyREAL8Sequence(xorb);
+  XLALDestroyDict(lalParams_aux);
+
+  return status;
+}
+
+/** Internal routine: IMRPhenomTHM modes at the times of TimeArray (see LALSimIMRPhenomTHM_Modes). */
+int LALSimIMRPhenomTHM_Modes_neha(
+  SphHarmTimeSeries **hlms, REAL8 m1_SI, REAL8 m2_SI, REAL8 chi1L, REAL8 chi2L, REAL8 distance,
+  REAL8 deltaT, REAL8 fmin, REAL8 fRef, REAL8 phiRef, LALDict *lalParams, REAL8Sequence *TimeArray,
+  UINT4 only22)
+{
+  return IMRPhenomTHM_Modes_neha_engine(hlms, m1_SI, m2_SI, chi1L, chi2L, distance, deltaT, fmin, fRef, phiRef, lalParams, TimeArray, only22, 0);
+}
+
+/** Internal routine: as LALSimIMRPhenomTHM_Modes_neha, zero outside the time span of the standard waveform. */
+int LALSimIMRPhenomTHM_Modes_neha_truncate(
+  SphHarmTimeSeries **hlms, REAL8 m1_SI, REAL8 m2_SI, REAL8 chi1L, REAL8 chi2L, REAL8 distance,
+  REAL8 deltaT, REAL8 fmin, REAL8 fRef, REAL8 phiRef, LALDict *lalParams, REAL8Sequence *TimeArray,
+  UINT4 only22)
+{
+  return IMRPhenomTHM_Modes_neha_engine(hlms, m1_SI, m2_SI, chi1L, chi2L, distance, deltaT, fmin, fRef, phiRef, lalParams, TimeArray, only22, 1);
+}
+
+/* lalParams copy with the (2,2), (2,-2) mode array if none is given (as in XLALSimIMRPhenomT) */
+static LALDict *IMRPhenomT_neha_22_dict(LALDict *lalParams, UINT4 negative_m)
+{
+  LALDict *lalParams_aux = (lalParams == NULL) ? XLALCreateDict() : XLALDictDuplicate(lalParams);
+  LALValue *ModeArray = XLALSimInspiralWaveformParamsLookupModeArray(lalParams_aux);
+  if(ModeArray==NULL)
+  {
+    ModeArray = XLALSimInspiralCreateModeArray();
+    XLALSimInspiralModeArrayActivateMode(ModeArray, 2, 2);
+    if(negative_m)
+    {
+      XLALSimInspiralModeArrayActivateMode(ModeArray, 2, -2);
+    }
+    XLALSimInspiralWaveformParamsInsertModeArray(lalParams_aux, ModeArray);
+  }
+  XLALDestroyValue(ModeArray);
+  return lalParams_aux;
+}
+
+/* Polarisations of IMRPhenomT (only22=1) or IMRPhenomTHM (only22=0) at the times of TimeArray */
+static int IMRPhenomTHM_neha_polarizations(
+  REAL8TimeSeries **hp, REAL8TimeSeries **hc, REAL8 m1_SI, REAL8 m2_SI, REAL8 chi1L, REAL8 chi2L,
+  REAL8 distance, REAL8 inclination, REAL8 deltaT, REAL8 fmin, REAL8 fRef, REAL8 phiRef,
+  REAL8Sequence *TimeArray, LALDict *lalParams, UINT4 only22, UINT4 truncate)
+{
+  XLAL_CHECK(NULL != hp, XLAL_EFAULT);
+  XLAL_CHECK(NULL != hc, XLAL_EFAULT);
+  XLAL_CHECK(*hp == NULL, XLAL_EFAULT);
+  XLAL_CHECK(*hc == NULL, XLAL_EFAULT);
+
+  LALDict *lalParams_aux = (only22==1) ? IMRPhenomT_neha_22_dict(lalParams, 1) : lalParams;
+
+  SphHarmTimeSeries *hlms = NULL;
+  INT4 status = IMRPhenomTHM_Modes_neha_engine(&hlms, m1_SI, m2_SI, chi1L, chi2L, distance, deltaT, fmin, fRef, phiRef, lalParams_aux, TimeArray, only22, truncate);
+  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: Internal function IMRPhenomTHM_Modes_neha_engine has failed producing the modes.");
+
+  status = LALSimIMRPhenomT_neha_AddModes(hp, hc, hlms, inclination, phiRef, deltaT);
+  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: LALSimIMRPhenomT_neha_AddModes has failed.");
+
+  XLALDestroySphHarmTimeSeries(hlms);
+  if(only22==1)
+  {
+    XLALDestroyDict(lalParams_aux);
+  }
+
+  return status;
+}
+
+/** IMRPhenomT polarisations at the times of TimeArray (see XLALSimIMRPhenomT). */
+int XLALSimIMRPhenomT_neha(
+  REAL8TimeSeries **hp, /**< [out] TD waveform for plus polarisation */
+  REAL8TimeSeries **hc, /**< [out] TD waveform for cross polarisation */
+  REAL8 m1_SI,      /**< Mass of companion 1 (kg) */
+  REAL8 m2_SI,      /**< Mass of companion 2 (kg) */
+  REAL8 chi1L,      /**< Dimensionless aligned spin of companion 1 */
+  REAL8 chi2L,      /**< Dimensionless aligned spin of companion 2 */
+  REAL8 distance,   /**< Luminosity distance (m) */
+  REAL8 inclination,  /**< inclination of source (rad) */
+  REAL8 deltaT,     /**< sampling interval (s) */
+  REAL8 fmin,     /**< starting GW frequency (Hz) */
+  REAL8 fRef,     /**< reference GW frequency (Hz) */
+  REAL8 phiRef,     /**< reference orbital phase (rad) */
+  REAL8Sequence *TimeArray, /**< Times (units of M, t=0 at the 22 amplitude peak) */
+  LALDict *lalParams  /**< LAL dictionary containing accessory parameters */
+  )
+{
+  return IMRPhenomTHM_neha_polarizations(hp, hc, m1_SI, m2_SI, chi1L, chi2L, distance, inclination, deltaT, fmin, fRef, phiRef, TimeArray, lalParams, 1, 0);
+}
+
+/** As XLALSimIMRPhenomT_neha, zero outside the time span of the standard waveform. */
+int XLALSimIMRPhenomT_neha_truncate(
+  REAL8TimeSeries **hp, /**< [out] TD waveform for plus polarisation */
+  REAL8TimeSeries **hc, /**< [out] TD waveform for cross polarisation */
+  REAL8 m1_SI,      /**< Mass of companion 1 (kg) */
+  REAL8 m2_SI,      /**< Mass of companion 2 (kg) */
+  REAL8 chi1L,      /**< Dimensionless aligned spin of companion 1 */
+  REAL8 chi2L,      /**< Dimensionless aligned spin of companion 2 */
+  REAL8 distance,   /**< Luminosity distance (m) */
+  REAL8 inclination,  /**< inclination of source (rad) */
+  REAL8 deltaT,     /**< sampling interval (s) */
+  REAL8 fmin,     /**< starting GW frequency (Hz) */
+  REAL8 fRef,     /**< reference GW frequency (Hz) */
+  REAL8 phiRef,     /**< reference orbital phase (rad) */
+  REAL8Sequence *TimeArray, /**< Times (units of M, t=0 at the 22 amplitude peak) */
+  LALDict *lalParams  /**< LAL dictionary containing accessory parameters */
+  )
+{
+  return IMRPhenomTHM_neha_polarizations(hp, hc, m1_SI, m2_SI, chi1L, chi2L, distance, inclination, deltaT, fmin, fRef, phiRef, TimeArray, lalParams, 1, 1);
+}
+
+/** IMRPhenomTHM polarisations at the times of TimeArray (see XLALSimIMRPhenomTHM). */
+int XLALSimIMRPhenomTHM_neha(
+  REAL8TimeSeries **hp, /**< [out] TD waveform for plus polarisation */
+  REAL8TimeSeries **hc, /**< [out] TD waveform for cross polarisation */
+  REAL8 m1_SI,      /**< Mass of companion 1 (kg) */
+  REAL8 m2_SI,      /**< Mass of companion 2 (kg) */
+  REAL8 chi1L,      /**< Dimensionless aligned spin of companion 1 */
+  REAL8 chi2L,      /**< Dimensionless aligned spin of companion 2 */
+  REAL8 distance,   /**< Luminosity distance (m) */
+  REAL8 inclination,  /**< inclination of source (rad) */
+  REAL8 deltaT,     /**< sampling interval (s) */
+  REAL8 fmin,     /**< starting GW frequency (Hz) */
+  REAL8 fRef,     /**< reference GW frequency (Hz) */
+  REAL8 phiRef,     /**< reference orbital phase (rad) */
+  REAL8Sequence *TimeArray, /**< Times (units of M, t=0 at the 22 amplitude peak) */
+  LALDict *lalParams  /**< LAL dictionary containing accessory parameters */
+  )
+{
+  return IMRPhenomTHM_neha_polarizations(hp, hc, m1_SI, m2_SI, chi1L, chi2L, distance, inclination, deltaT, fmin, fRef, phiRef, TimeArray, lalParams, 0, 0);
+}
+
+/** As XLALSimIMRPhenomTHM_neha, zero outside the time span of the standard waveform. */
+int XLALSimIMRPhenomTHM_neha_truncate(
+  REAL8TimeSeries **hp, /**< [out] TD waveform for plus polarisation */
+  REAL8TimeSeries **hc, /**< [out] TD waveform for cross polarisation */
+  REAL8 m1_SI,      /**< Mass of companion 1 (kg) */
+  REAL8 m2_SI,      /**< Mass of companion 2 (kg) */
+  REAL8 chi1L,      /**< Dimensionless aligned spin of companion 1 */
+  REAL8 chi2L,      /**< Dimensionless aligned spin of companion 2 */
+  REAL8 distance,   /**< Luminosity distance (m) */
+  REAL8 inclination,  /**< inclination of source (rad) */
+  REAL8 deltaT,     /**< sampling interval (s) */
+  REAL8 fmin,     /**< starting GW frequency (Hz) */
+  REAL8 fRef,     /**< reference GW frequency (Hz) */
+  REAL8 phiRef,     /**< reference orbital phase (rad) */
+  REAL8Sequence *TimeArray, /**< Times (units of M, t=0 at the 22 amplitude peak) */
+  LALDict *lalParams  /**< LAL dictionary containing accessory parameters */
+  )
+{
+  return IMRPhenomTHM_neha_polarizations(hp, hc, m1_SI, m2_SI, chi1L, chi2L, distance, inclination, deltaT, fmin, fRef, phiRef, TimeArray, lalParams, 0, 1);
+}
+
+/** IMRPhenomT (2,2) mode at the times of TimeArray ((2,-2) too if requested in the ModeArray of lalParams). */
+int XLALSimIMRPhenomT_neha_just_modes(
+  SphHarmTimeSeries **hlms, /**< [out] Dominant mode time series */
+  REAL8 m1_SI,      /**< Mass of companion 1 (kg) */
+  REAL8 m2_SI,      /**< Mass of companion 2 (kg) */
+  REAL8 chi1L,      /**< Dimensionless aligned spin of companion 1 */
+  REAL8 chi2L,      /**< Dimensionless aligned spin of companion 2 */
+  REAL8 distance,   /**< Luminosity distance (m) */
+  REAL8 deltaT,     /**< Sampling interval (s) */
+  REAL8 fmin,       /**< Starting GW frequency (Hz) */
+  REAL8 fRef,       /**< Reference GW frequency (Hz) */
+  REAL8 phiRef,     /**< Reference orbital phase (rad) */
+  REAL8Sequence *TimeArray, /**< Times (units of M, t=0 at the 22 amplitude peak) */
+  LALDict *lalParams  /**< LAL dictionary containing accessory parameters */
+  )
+{
+  LALDict *lalParams_aux = IMRPhenomT_neha_22_dict(lalParams, 0);
+  INT4 status = IMRPhenomTHM_Modes_neha_engine(hlms, m1_SI, m2_SI, chi1L, chi2L, distance, deltaT, fmin, fRef, phiRef, lalParams_aux, TimeArray, 1, 0);
+  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: IMRPhenomTHM_Modes_neha_engine failed to produce the modes.");
+  XLALDestroyDict(lalParams_aux);
+  return status;
+}
+
+/** As XLALSimIMRPhenomT_neha_just_modes, zero outside the time span of the standard waveform. */
+int XLALSimIMRPhenomT_neha_just_modes_truncate(
+  SphHarmTimeSeries **hlms, /**< [out] Dominant mode time series */
+  REAL8 m1_SI,      /**< Mass of companion 1 (kg) */
+  REAL8 m2_SI,      /**< Mass of companion 2 (kg) */
+  REAL8 chi1L,      /**< Dimensionless aligned spin of companion 1 */
+  REAL8 chi2L,      /**< Dimensionless aligned spin of companion 2 */
+  REAL8 distance,   /**< Luminosity distance (m) */
+  REAL8 deltaT,     /**< Sampling interval (s) */
+  REAL8 fmin,       /**< Starting GW frequency (Hz) */
+  REAL8 fRef,       /**< Reference GW frequency (Hz) */
+  REAL8 phiRef,     /**< Reference orbital phase (rad) */
+  REAL8Sequence *TimeArray, /**< Times (units of M, t=0 at the 22 amplitude peak) */
+  LALDict *lalParams  /**< LAL dictionary containing accessory parameters */
+  )
+{
+  LALDict *lalParams_aux = IMRPhenomT_neha_22_dict(lalParams, 0);
+  INT4 status = IMRPhenomTHM_Modes_neha_engine(hlms, m1_SI, m2_SI, chi1L, chi2L, distance, deltaT, fmin, fRef, phiRef, lalParams_aux, TimeArray, 1, 1);
+  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: IMRPhenomTHM_Modes_neha_engine failed to produce the modes.");
+  XLALDestroyDict(lalParams_aux);
+  return status;
+}
+
+/** IMRPhenomTHM modes at the times of TimeArray (see XLALSimIMRPhenomTHM_Modes). */
+SphHarmTimeSeries *XLALSimIMRPhenomTHM_Modes_neha(
+  REAL8 m1_SI,								/**< Mass of companion 1 (kg) */
+  REAL8 m2_SI,								/**< Mass of companion 2 (kg) */
+  REAL8 chi1L,								/**< Dimensionless aligned spin of companion 1 */
+  REAL8 chi2L,								/**< Dimensionless aligned spin of companion 2 */
+  REAL8 distance,							/**< Luminosity distance (m) */
+  REAL8 deltaT,								/**< sampling interval (s) */
+  REAL8 fmin,								/**< starting GW frequency (Hz) */
+  REAL8 fRef,								/**< reference GW frequency (Hz) */
+  REAL8 phiRef,								/**< reference orbital phase (rad) */
+  REAL8Sequence *TimeArray,           /**< Times (units of M, t=0 at the 22 amplitude peak) */
+  LALDict *lalParams 						/**< LAL dictionary containing accessory parameters */
+  )
+{
+  SphHarmTimeSeries *hlms = NULL;
+  INT4 status = IMRPhenomTHM_Modes_neha_engine(&hlms, m1_SI, m2_SI, chi1L, chi2L, distance, deltaT, fmin, fRef, phiRef, lalParams, TimeArray, 0, 0);
+  XLAL_CHECK_NULL(status != XLAL_FAILURE, XLAL_EFUNC, "Error: Internal function IMRPhenomTHM_Modes_neha_engine has failed producing the modes.");
+  return hlms;
+}
+
+/** As XLALSimIMRPhenomTHM_Modes_neha, zero outside the time span of the standard waveform. */
+SphHarmTimeSeries *XLALSimIMRPhenomTHM_Modes_neha_truncate(
+  REAL8 m1_SI,								/**< Mass of companion 1 (kg) */
+  REAL8 m2_SI,								/**< Mass of companion 2 (kg) */
+  REAL8 chi1L,								/**< Dimensionless aligned spin of companion 1 */
+  REAL8 chi2L,								/**< Dimensionless aligned spin of companion 2 */
+  REAL8 distance,							/**< Luminosity distance (m) */
+  REAL8 deltaT,								/**< sampling interval (s) */
+  REAL8 fmin,								/**< starting GW frequency (Hz) */
+  REAL8 fRef,								/**< reference GW frequency (Hz) */
+  REAL8 phiRef,								/**< reference orbital phase (rad) */
+  REAL8Sequence *TimeArray,           /**< Times (units of M, t=0 at the 22 amplitude peak) */
+  LALDict *lalParams 						/**< LAL dictionary containing accessory parameters */
+  )
+{
+  SphHarmTimeSeries *hlms = NULL;
+  INT4 status = IMRPhenomTHM_Modes_neha_engine(&hlms, m1_SI, m2_SI, chi1L, chi2L, distance, deltaT, fmin, fRef, phiRef, lalParams, TimeArray, 0, 1);
+  XLAL_CHECK_NULL(status != XLAL_FAILURE, XLAL_EFUNC, "Error: Internal function IMRPhenomTHM_Modes_neha_engine has failed producing the modes.");
+  return hlms;
+}
