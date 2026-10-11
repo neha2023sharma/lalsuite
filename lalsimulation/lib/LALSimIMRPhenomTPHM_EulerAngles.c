@@ -1435,7 +1435,7 @@ return status;
 }
 
 /* ==========================================================================
- * Functions for Neha: precessing Euler angles of IMRPhenomTP/TPHM at the
+ * Model-time functions: precessing Euler angles of IMRPhenomTP/TPHM at the
  * times of a user-supplied TimeArray (units of M, t = 0 at the peak of the
  * non-precessing 22 amplitude).
  *
@@ -1461,23 +1461,23 @@ return status;
  * (the mode amplitudes are zero there).
  * ========================================================================== */
 
-#define IMRPhenomTPHM_NEHA_MAXJOINS 8
+#define IMRPhenomTPHM_MODELTIMES_MAXJOINS 8
 
 /* Angle interpolant on the standard grid: cubic splines on smooth pieces,
 linear across the joins between pieces. */
-typedef struct tagIMRPhenomTPHM_neha_interp
+typedef struct tagIMRPhenomTPHM_ModelTimes_interp
 {
   const REAL8 *y;          /* values on the standard grid */
   size_t n;                /* number of samples of the standard grid */
   REAL8 tlo;               /* first time of the standard grid */
   REAL8 dt;                /* grid step (units of M) */
   size_t npieces;          /* number of smooth pieces */
-  size_t start[IMRPhenomTPHM_NEHA_MAXJOINS+2];   /* first index of each piece; start[npieces] = n */
-  gsl_spline *spline[IMRPhenomTPHM_NEHA_MAXJOINS+1];   /* spline of each piece (NULL for 1-sample pieces) */
-  gsl_interp_accel *acc[IMRPhenomTPHM_NEHA_MAXJOINS+1];
-} IMRPhenomTPHM_neha_interp;
+  size_t start[IMRPhenomTPHM_MODELTIMES_MAXJOINS+2];   /* first index of each piece; start[npieces] = n */
+  gsl_spline *spline[IMRPhenomTPHM_MODELTIMES_MAXJOINS+1];   /* spline of each piece (NULL for 1-sample pieces) */
+  gsl_interp_accel *acc[IMRPhenomTPHM_MODELTIMES_MAXJOINS+1];
+} IMRPhenomTPHM_ModelTimes_interp;
 
-static void IMRPhenomTPHM_neha_interp_init(IMRPhenomTPHM_neha_interp *p, const REAL8 *t, const REAL8 *y, size_t n, REAL8 dt, const size_t *joins, size_t njoins)
+static void IMRPhenomTPHM_ModelTimes_interp_init(IMRPhenomTPHM_ModelTimes_interp *p, const REAL8 *t, const REAL8 *y, size_t n, REAL8 dt, const size_t *joins, size_t njoins)
 {
   p->y = y;
   p->n = n;
@@ -1505,7 +1505,7 @@ static void IMRPhenomTPHM_neha_interp_init(IMRPhenomTPHM_neha_interp *p, const R
   }
 }
 
-static void IMRPhenomTPHM_neha_interp_free(IMRPhenomTPHM_neha_interp *p)
+static void IMRPhenomTPHM_ModelTimes_interp_free(IMRPhenomTPHM_ModelTimes_interp *p)
 {
   for(size_t k = 0; k < p->npieces; k++)
   {
@@ -1515,7 +1515,7 @@ static void IMRPhenomTPHM_neha_interp_free(IMRPhenomTPHM_neha_interp *p)
 }
 
 /* Value at time t, with tlo <= t <= tlo + (n-1)*dt */
-static REAL8 IMRPhenomTPHM_neha_interp_eval(IMRPhenomTPHM_neha_interp *p, REAL8 t)
+static REAL8 IMRPhenomTPHM_ModelTimes_interp_eval(IMRPhenomTPHM_ModelTimes_interp *p, REAL8 t)
 {
   REAL8 u = (t - p->tlo)/p->dt;
 
@@ -1545,7 +1545,7 @@ static REAL8 IMRPhenomTPHM_neha_interp_eval(IMRPhenomTPHM_neha_interp *p, REAL8 
   return (1.0 - w)*p->y[j] + w*p->y[j+1];
 }
 
-int IMRPhenomTPHM_EulerAngles_neha(
+int IMRPhenomTPHM_EulerAnglesModelTimes(
   REAL8TimeSeries **alphaTS, REAL8TimeSeries **cosbetaTS, REAL8TimeSeries **gammaTS,
   REAL8TimeSeries **alphaNatTS, REAL8TimeSeries **cosbetaNatTS, REAL8TimeSeries **gammaNatTS,
   REAL8 *af, REAL8Sequence *TimeArray, REAL8 m1_SI, REAL8 m2_SI,
@@ -1554,7 +1554,7 @@ int IMRPhenomTPHM_EulerAngles_neha(
   IMRPhenomXPrecessionStruct *pPrec, INT4 EulerInspVersion, INT4 EulerRDVersion, INT4 EulerGammaVersion,
   UINT4 evolvedFS, UINT4 reconsMerger, UINT4 truncate);
 
-int IMRPhenomTPHM_EulerAngles_neha(
+int IMRPhenomTPHM_EulerAnglesModelTimes(
   REAL8TimeSeries **alphaTS,               /**< [out] Precessing Euler angle alpha, at the times of TimeArray */
   REAL8TimeSeries **cosbetaTS,             /**< [out] Precessing Euler angle cos(beta), at the times of TimeArray */
   REAL8TimeSeries **gammaTS,               /**< [out] Precessing Euler angle gamma, at the times of TimeArray */
@@ -1671,7 +1671,7 @@ int IMRPhenomTPHM_EulerAngles_neha(
     MECO time, reference time of the numerical angles);
   - start of the constant cos(beta) of the ringdown angles (copy of the last value before it);
   - numerical angles: gamma between the first and second sample. */
-  size_t joins[IMRPhenomTPHM_NEHA_MAXJOINS];
+  size_t joins[IMRPhenomTPHM_MODELTIMES_MAXJOINS];
   size_t njoins = 0;
   const REAL8 *al = alphaNat->data->data;
   const REAL8 *cb = cosbetaNat->data->data;
@@ -1680,7 +1680,7 @@ int IMRPhenomTPHM_EulerAngles_neha(
   while(r > 0 && cb[r-1] == cb[length_nat-1]) r--;
   size_t rdjoin = (r >= 2 && r + 1 < length_nat - 1) ? r + 1 : 0;
 
-  for(size_t k = 1; k < length_nat && njoins < IMRPhenomTPHM_NEHA_MAXJOINS; k++)
+  for(size_t k = 1; k < length_nat && njoins < IMRPhenomTPHM_MODELTIMES_MAXJOINS; k++)
   {
     if((k == 1 && EulerInspVersion == 1) || al[k] == al[k-1] || k == rdjoin)
     {
@@ -1688,10 +1688,10 @@ int IMRPhenomTPHM_EulerAngles_neha(
     }
   }
   /* ---- Interpolation to TimeArray ---- */
-  IMRPhenomTPHM_neha_interp ialpha, icosbeta, igamma;
-  IMRPhenomTPHM_neha_interp_init(&ialpha,   tnat->data, alphaNat->data->data,   length_nat, pWF->dtM, joins, njoins);
-  IMRPhenomTPHM_neha_interp_init(&icosbeta, tnat->data, cosbetaNat->data->data, length_nat, pWF->dtM, joins, njoins);
-  IMRPhenomTPHM_neha_interp_init(&igamma,   tnat->data, gammaNat->data->data,   length_nat, pWF->dtM, joins, njoins);
+  IMRPhenomTPHM_ModelTimes_interp ialpha, icosbeta, igamma;
+  IMRPhenomTPHM_ModelTimes_interp_init(&ialpha,   tnat->data, alphaNat->data->data,   length_nat, pWF->dtM, joins, njoins);
+  IMRPhenomTPHM_ModelTimes_interp_init(&icosbeta, tnat->data, cosbetaNat->data->data, length_nat, pWF->dtM, joins, njoins);
+  IMRPhenomTPHM_ModelTimes_interp_init(&igamma,   tnat->data, gammaNat->data->data,   length_nat, pWF->dtM, joins, njoins);
 
   LIGOTimeGPS epoch_req = LIGOTIMEGPSZERO;
   XLALGPSAdd(&epoch_req, pWF->M_sec*TimeArray->data[0]);
@@ -1710,23 +1710,23 @@ int IMRPhenomTPHM_EulerAngles_neha(
 
     if(treq < tlo - domain_tol || treq > thi + domain_tol)
     {
-      XLAL_CHECK(truncate==1, XLAL_EDOM, "Error: requested time %g lies outside the time span [%g, %g] of the precessing Euler angles. Use the _truncate version for times outside it.\n", treq, tlo, thi);
+      XLAL_CHECK(truncate==1, XLAL_EDOM, "Error: requested time %g lies outside the time span [%g, %g] of the precessing Euler angles. Use the ModelTimesTruncated version for times outside it.\n", treq, tlo, thi);
     }
     if(treq < tlo) treq = tlo;
     if(treq > thi) treq = thi;
 
-    (*alphaTS)->data->data[jdx]   = IMRPhenomTPHM_neha_interp_eval(&ialpha,   treq);
-    (*cosbetaTS)->data->data[jdx] = IMRPhenomTPHM_neha_interp_eval(&icosbeta, treq);
-    (*gammaTS)->data->data[jdx]   = IMRPhenomTPHM_neha_interp_eval(&igamma,   treq);
+    (*alphaTS)->data->data[jdx]   = IMRPhenomTPHM_ModelTimes_interp_eval(&ialpha,   treq);
+    (*cosbetaTS)->data->data[jdx] = IMRPhenomTPHM_ModelTimes_interp_eval(&icosbeta, treq);
+    (*gammaTS)->data->data[jdx]   = IMRPhenomTPHM_ModelTimes_interp_eval(&igamma,   treq);
 
     /* cubic spline overshoot could push cos(beta) marginally outside [-1, 1] */
     if((*cosbetaTS)->data->data[jdx] > 1.0)  (*cosbetaTS)->data->data[jdx] = 1.0;
     if((*cosbetaTS)->data->data[jdx] < -1.0) (*cosbetaTS)->data->data[jdx] = -1.0;
   }
 
-  IMRPhenomTPHM_neha_interp_free(&ialpha);
-  IMRPhenomTPHM_neha_interp_free(&icosbeta);
-  IMRPhenomTPHM_neha_interp_free(&igamma);
+  IMRPhenomTPHM_ModelTimes_interp_free(&ialpha);
+  IMRPhenomTPHM_ModelTimes_interp_free(&icosbeta);
+  IMRPhenomTPHM_ModelTimes_interp_free(&igamma);
 
   if(alphaNatTS)   { *alphaNatTS = alphaNat; }     else { XLALDestroyREAL8TimeSeries(alphaNat); }
   if(cosbetaNatTS) { *cosbetaNatTS = cosbetaNat; } else { XLALDestroyREAL8TimeSeries(cosbetaNat); }

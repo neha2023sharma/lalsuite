@@ -59,8 +59,8 @@ int LALSimIMRPhenomTHM_Modes(
   UINT4 only22              /**< Internal flag for mode array check */
   );
 
-/* Functions for Neha: waveform at the times of a TimeArray (units of M), see LALSimIMRPhenomTHM.c */
-int LALSimIMRPhenomT_neha_Phase22(
+/* Model-time functions: waveform at the times of a TimeArray (units of M), see LALSimIMRPhenomTHM.c */
+int LALSimIMRPhenomT_ModelTimes_Phase22(
   REAL8Sequence *phi22,               /**< [out] 22 phase at the times of TimeArray */
   REAL8Sequence *xorb,                /**< [out] x = (0.5*omega_22)^(2/3) at the times of TimeArray */
   REAL8Sequence *TimeArray,           /**< Times (units of M) */
@@ -68,7 +68,7 @@ int LALSimIMRPhenomT_neha_Phase22(
   IMRPhenomTPhase22Struct *pPhase     /**< 22 phase and frequency structure */
   );
 
-int LALSimIMRPhenomT_neha_AddModes(
+int LALSimIMRPhenomT_ModelTimes_AddModes(
   REAL8TimeSeries **hp,               /**< [out] TD waveform for plus polarisation */
   REAL8TimeSeries **hc,               /**< [out] TD waveform for cross polarisation */
   SphHarmTimeSeries *hlms,            /**< Modes */
@@ -77,7 +77,7 @@ int LALSimIMRPhenomT_neha_AddModes(
   REAL8 deltaT                        /**< sampling interval (s), label only */
   );
 
-int LALSimIMRPhenomTHM_Modes_neha(
+int LALSimIMRPhenomTHM_ModesModelTimes(
   SphHarmTimeSeries **hlms,   /**< [out] Time domain modes */
   REAL8 m1_SI,                /**< Mass of companion 1 (kg) */
   REAL8 m2_SI,                /**< Mass of companion 2 (kg) */
@@ -93,7 +93,7 @@ int LALSimIMRPhenomTHM_Modes_neha(
   UINT4 only22              /** Internal flag for mode array check */
   );
 
-int LALSimIMRPhenomTHM_OneMode_neha(
+int LALSimIMRPhenomTHM_OneModeModelTimes(
 	COMPLEX16TimeSeries **hlm,			/**< [out] Time domain waveform of the requested (l,m) mode */
 	IMRPhenomTWaveformStruct *pWF,		/**< Waveform structure */
 	IMRPhenomTPhase22Struct *pPhase,	/**< 22 phase and frequency structure */
@@ -104,7 +104,7 @@ int LALSimIMRPhenomTHM_OneMode_neha(
 	UINT4 emm							/**< m value of the requested mode */
 	);
 
-int LALSimIMRPhenomTHM_Modes_neha_truncate(
+int LALSimIMRPhenomTHM_ModesModelTimesTruncated(
   SphHarmTimeSeries **hlms,   /**< [out] Time domain modes */
   REAL8 m1_SI,                /**< Mass of companion 1 (kg) */
   REAL8 m2_SI,                /**< Mass of companion 2 (kg) */
@@ -120,7 +120,7 @@ int LALSimIMRPhenomTHM_Modes_neha_truncate(
   UINT4 only22              /** Internal flag for mode array check */
   );
 
-int LALSimIMRPhenomTHM_OneMode_neha_truncate(
+int LALSimIMRPhenomTHM_OneModeModelTimesTruncated(
 	COMPLEX16TimeSeries **hlm,			/**< [out] Time domain waveform of the requested (l,m) mode */
 	IMRPhenomTWaveformStruct *pWF,		/**< Waveform structure */
 	IMRPhenomTPhase22Struct *pPhase,	/**< 22 phase and frequency structure */

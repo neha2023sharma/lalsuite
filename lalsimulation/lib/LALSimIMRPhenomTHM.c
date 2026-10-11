@@ -792,19 +792,20 @@ INT4 check_input_mode_array_22_THM(LALDict *lalParams)
 }
 
 /* ========================================================================== */
-/*                            Functions for Neha                              */
+/*                            Model-time functions                            */
 /* ========================================================================== */
 /*
  * IMRPhenomT / IMRPhenomTHM modes and polarisations evaluated at the times of
  * a user-supplied TimeArray: times in units of the total mass M (t[s]/M_sec),
  * with t = 0 at the peak of the 22 amplitude, any spacing.
  *
- * - *_neha:          the model is evaluated at every requested time, also
- *                    outside the time span of the standard waveform (the
- *                    closed-form ansatz is extended there).
- * - *_neha_truncate: samples outside the time span of the standard waveform,
- *                    i.e. before the time at which the 22 frequency equals
- *                    fmin and after the last ringdown sample, are set to 0.
+ * - *ModelTimes:          the model is evaluated at every requested time, also
+ *                         outside the time span of the standard waveform (the
+ *                         closed-form ansatz is extended there).
+ * - *ModelTimesTruncated: samples outside the time span of the standard
+ *                         waveform, i.e. before the time at which the 22
+ *                         frequency equals fmin and after the last ringdown
+ *                         sample, are set to 0.
  *
  * On the time grid of the standard waveform (tmin + k*dtM) both give the
  * standard waveform. The output time series have epoch M_sec*TimeArray[0];
@@ -816,7 +817,7 @@ INT4 check_input_mode_array_22_THM(LALDict *lalParams)
  * LALSimIMRPhenomTHM_Modes: inspiral times (t <= tCut22) use the PN time
  * parameter theta (with the fitted t0 before tEarly if PhenomTHMInspiralVersion != 0).
  */
-int LALSimIMRPhenomT_neha_Phase22(
+int LALSimIMRPhenomT_ModelTimes_Phase22(
   REAL8Sequence *phi22,               /**< [out] 22 phase at the times of TimeArray */
   REAL8Sequence *xorb,                /**< [out] x = (0.5*omega_22)^(2/3) at the times of TimeArray */
   REAL8Sequence *TimeArray,           /**< Times (units of M) */
@@ -855,7 +856,7 @@ int LALSimIMRPhenomT_neha_Phase22(
 /**
  * Polarisations from a list of modes, as in XLALSimIMRPhenomT/THM/TP/TPHM.
  */
-int LALSimIMRPhenomT_neha_AddModes(
+int LALSimIMRPhenomT_ModelTimes_AddModes(
   REAL8TimeSeries **hp,               /**< [out] TD waveform for plus polarisation */
   REAL8TimeSeries **hc,               /**< [out] TD waveform for cross polarisation */
   SphHarmTimeSeries *hlms,            /**< Modes */
@@ -894,7 +895,7 @@ int LALSimIMRPhenomT_neha_AddModes(
  * LALSimIMRPhenomTHM_OneMode, with t = TimeArray->data[jdx] instead of
  * t = tmin + jdx*dtM.
  */
-int LALSimIMRPhenomTHM_OneMode_neha(
+int LALSimIMRPhenomTHM_OneModeModelTimes(
   COMPLEX16TimeSeries **hlm,          /**< [out] Time domain waveform of the requested (l,m) mode */
   IMRPhenomTWaveformStruct *pWF,      /**< Waveform structure */
   IMRPhenomTPhase22Struct *pPhase,    /**< 22 phase and frequency structure */
@@ -970,11 +971,11 @@ int LALSimIMRPhenomTHM_OneMode_neha(
 }
 
 /**
- * As LALSimIMRPhenomTHM_OneMode_neha, with the samples outside the time span
+ * As LALSimIMRPhenomTHM_OneModeModelTimes, with the samples outside the time span
  * of the standard waveform, [tmin, tmin + (wflength-1)*dtM], set to 0.
  * pPhase must hold the standard tmin and wflength (set by IMRPhenomTSetPhase22Coefficients).
  */
-int LALSimIMRPhenomTHM_OneMode_neha_truncate(
+int LALSimIMRPhenomTHM_OneModeModelTimesTruncated(
   COMPLEX16TimeSeries **hlm,          /**< [out] Time domain waveform of the requested (l,m) mode */
   IMRPhenomTWaveformStruct *pWF,      /**< Waveform structure */
   IMRPhenomTPhase22Struct *pPhase,    /**< 22 phase and frequency structure */
@@ -985,8 +986,8 @@ int LALSimIMRPhenomTHM_OneMode_neha_truncate(
   UINT4 emm                           /**< m value of the requested mode */
   )
 {
-  UINT4 status = LALSimIMRPhenomTHM_OneMode_neha(hlm, pWF, pPhase, phase22, xorb, TimeArray, ell, emm);
-  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: LALSimIMRPhenomTHM_OneMode_neha failed for %d,%d.\n", ell, emm);
+  UINT4 status = LALSimIMRPhenomTHM_OneModeModelTimes(hlm, pWF, pPhase, phase22, xorb, TimeArray, ell, emm);
+  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: LALSimIMRPhenomTHM_OneModeModelTimes failed for %d,%d.\n", ell, emm);
 
   /* First and last sample of the standard waveform. The tolerance absorbs rounding in a
   TimeArray built from the standard time grid, including the 1 ns rounding of the epoch of
@@ -1007,7 +1008,7 @@ int LALSimIMRPhenomTHM_OneMode_neha_truncate(
 }
 
 /* Modes at the times of TimeArray; same as LALSimIMRPhenomTHM_Modes otherwise. */
-static int IMRPhenomTHM_Modes_neha_engine(
+static int IMRPhenomTHM_ModesModelTimes_engine(
   SphHarmTimeSeries **hlms, REAL8 m1_SI, REAL8 m2_SI, REAL8 chi1L, REAL8 chi2L, REAL8 distance,
   REAL8 deltaT, REAL8 fmin, REAL8 fRef, REAL8 phiRef, LALDict *lalParams, REAL8Sequence *TimeArray,
   UINT4 only22, UINT4 truncate)
@@ -1079,8 +1080,8 @@ static int IMRPhenomTHM_Modes_neha_engine(
   size_t length = TimeArray->length;
   REAL8Sequence *phi22 = XLALCreateREAL8Sequence(length);
   REAL8Sequence *xorb = XLALCreateREAL8Sequence(length);
-  status = LALSimIMRPhenomT_neha_Phase22(phi22, xorb, TimeArray, pWF, pPhase);
-  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: LALSimIMRPhenomT_neha_Phase22 has failed.");
+  status = LALSimIMRPhenomT_ModelTimes_Phase22(phi22, xorb, TimeArray, pWF, pPhase);
+  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: LALSimIMRPhenomT_ModelTimes_Phase22 has failed.");
 
   /***** Loop over modes ******/
   INT4 posMode, negMode;
@@ -1098,11 +1099,11 @@ static int IMRPhenomTHM_Modes_neha_engine(
       COMPLEX16TimeSeries *tmp_mode = NULL;
       if(truncate==1)
       {
-        status = LALSimIMRPhenomTHM_OneMode_neha_truncate(&tmp_mode, pWF, pPhase, phi22, xorb, TimeArray, ell, emm);
+        status = LALSimIMRPhenomTHM_OneModeModelTimesTruncated(&tmp_mode, pWF, pPhase, phi22, xorb, TimeArray, ell, emm);
       }
       else
       {
-        status = LALSimIMRPhenomTHM_OneMode_neha(&tmp_mode, pWF, pPhase, phi22, xorb, TimeArray, ell, emm);
+        status = LALSimIMRPhenomTHM_OneModeModelTimes(&tmp_mode, pWF, pPhase, phi22, xorb, TimeArray, ell, emm);
       }
       XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: generating mode (%d,%d) has failed.\n", ell, emm);
 
@@ -1133,25 +1134,25 @@ static int IMRPhenomTHM_Modes_neha_engine(
 }
 
 /** Internal routine: IMRPhenomTHM modes at the times of TimeArray (see LALSimIMRPhenomTHM_Modes). */
-int LALSimIMRPhenomTHM_Modes_neha(
+int LALSimIMRPhenomTHM_ModesModelTimes(
   SphHarmTimeSeries **hlms, REAL8 m1_SI, REAL8 m2_SI, REAL8 chi1L, REAL8 chi2L, REAL8 distance,
   REAL8 deltaT, REAL8 fmin, REAL8 fRef, REAL8 phiRef, LALDict *lalParams, REAL8Sequence *TimeArray,
   UINT4 only22)
 {
-  return IMRPhenomTHM_Modes_neha_engine(hlms, m1_SI, m2_SI, chi1L, chi2L, distance, deltaT, fmin, fRef, phiRef, lalParams, TimeArray, only22, 0);
+  return IMRPhenomTHM_ModesModelTimes_engine(hlms, m1_SI, m2_SI, chi1L, chi2L, distance, deltaT, fmin, fRef, phiRef, lalParams, TimeArray, only22, 0);
 }
 
-/** Internal routine: as LALSimIMRPhenomTHM_Modes_neha, zero outside the time span of the standard waveform. */
-int LALSimIMRPhenomTHM_Modes_neha_truncate(
+/** Internal routine: as LALSimIMRPhenomTHM_ModesModelTimes, zero outside the time span of the standard waveform. */
+int LALSimIMRPhenomTHM_ModesModelTimesTruncated(
   SphHarmTimeSeries **hlms, REAL8 m1_SI, REAL8 m2_SI, REAL8 chi1L, REAL8 chi2L, REAL8 distance,
   REAL8 deltaT, REAL8 fmin, REAL8 fRef, REAL8 phiRef, LALDict *lalParams, REAL8Sequence *TimeArray,
   UINT4 only22)
 {
-  return IMRPhenomTHM_Modes_neha_engine(hlms, m1_SI, m2_SI, chi1L, chi2L, distance, deltaT, fmin, fRef, phiRef, lalParams, TimeArray, only22, 1);
+  return IMRPhenomTHM_ModesModelTimes_engine(hlms, m1_SI, m2_SI, chi1L, chi2L, distance, deltaT, fmin, fRef, phiRef, lalParams, TimeArray, only22, 1);
 }
 
 /* lalParams copy with the (2,2), (2,-2) mode array if none is given (as in XLALSimIMRPhenomT) */
-static LALDict *IMRPhenomT_neha_22_dict(LALDict *lalParams, UINT4 negative_m)
+static LALDict *IMRPhenomT_ModelTimes_22_dict(LALDict *lalParams, UINT4 negative_m)
 {
   LALDict *lalParams_aux = (lalParams == NULL) ? XLALCreateDict() : XLALDictDuplicate(lalParams);
   LALValue *ModeArray = XLALSimInspiralWaveformParamsLookupModeArray(lalParams_aux);
@@ -1170,7 +1171,7 @@ static LALDict *IMRPhenomT_neha_22_dict(LALDict *lalParams, UINT4 negative_m)
 }
 
 /* Polarisations of IMRPhenomT (only22=1) or IMRPhenomTHM (only22=0) at the times of TimeArray */
-static int IMRPhenomTHM_neha_polarizations(
+static int IMRPhenomTHM_ModelTimes_polarizations(
   REAL8TimeSeries **hp, REAL8TimeSeries **hc, REAL8 m1_SI, REAL8 m2_SI, REAL8 chi1L, REAL8 chi2L,
   REAL8 distance, REAL8 inclination, REAL8 deltaT, REAL8 fmin, REAL8 fRef, REAL8 phiRef,
   REAL8Sequence *TimeArray, LALDict *lalParams, UINT4 only22, UINT4 truncate)
@@ -1180,14 +1181,14 @@ static int IMRPhenomTHM_neha_polarizations(
   XLAL_CHECK(*hp == NULL, XLAL_EFAULT);
   XLAL_CHECK(*hc == NULL, XLAL_EFAULT);
 
-  LALDict *lalParams_aux = (only22==1) ? IMRPhenomT_neha_22_dict(lalParams, 1) : lalParams;
+  LALDict *lalParams_aux = (only22==1) ? IMRPhenomT_ModelTimes_22_dict(lalParams, 1) : lalParams;
 
   SphHarmTimeSeries *hlms = NULL;
-  INT4 status = IMRPhenomTHM_Modes_neha_engine(&hlms, m1_SI, m2_SI, chi1L, chi2L, distance, deltaT, fmin, fRef, phiRef, lalParams_aux, TimeArray, only22, truncate);
-  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: Internal function IMRPhenomTHM_Modes_neha_engine has failed producing the modes.");
+  INT4 status = IMRPhenomTHM_ModesModelTimes_engine(&hlms, m1_SI, m2_SI, chi1L, chi2L, distance, deltaT, fmin, fRef, phiRef, lalParams_aux, TimeArray, only22, truncate);
+  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: Internal function IMRPhenomTHM_ModesModelTimes_engine has failed producing the modes.");
 
-  status = LALSimIMRPhenomT_neha_AddModes(hp, hc, hlms, inclination, phiRef, deltaT);
-  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: LALSimIMRPhenomT_neha_AddModes has failed.");
+  status = LALSimIMRPhenomT_ModelTimes_AddModes(hp, hc, hlms, inclination, phiRef, deltaT);
+  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: LALSimIMRPhenomT_ModelTimes_AddModes has failed.");
 
   XLALDestroySphHarmTimeSeries(hlms);
   if(only22==1)
@@ -1199,7 +1200,7 @@ static int IMRPhenomTHM_neha_polarizations(
 }
 
 /** IMRPhenomT polarisations at the times of TimeArray (see XLALSimIMRPhenomT). */
-int XLALSimIMRPhenomT_neha(
+int XLALSimIMRPhenomTModelTimes(
   REAL8TimeSeries **hp, /**< [out] TD waveform for plus polarisation */
   REAL8TimeSeries **hc, /**< [out] TD waveform for cross polarisation */
   REAL8 m1_SI,      /**< Mass of companion 1 (kg) */
@@ -1216,11 +1217,11 @@ int XLALSimIMRPhenomT_neha(
   LALDict *lalParams  /**< LAL dictionary containing accessory parameters */
   )
 {
-  return IMRPhenomTHM_neha_polarizations(hp, hc, m1_SI, m2_SI, chi1L, chi2L, distance, inclination, deltaT, fmin, fRef, phiRef, TimeArray, lalParams, 1, 0);
+  return IMRPhenomTHM_ModelTimes_polarizations(hp, hc, m1_SI, m2_SI, chi1L, chi2L, distance, inclination, deltaT, fmin, fRef, phiRef, TimeArray, lalParams, 1, 0);
 }
 
-/** As XLALSimIMRPhenomT_neha, zero outside the time span of the standard waveform. */
-int XLALSimIMRPhenomT_neha_truncate(
+/** As XLALSimIMRPhenomTModelTimes, zero outside the time span of the standard waveform. */
+int XLALSimIMRPhenomTModelTimesTruncated(
   REAL8TimeSeries **hp, /**< [out] TD waveform for plus polarisation */
   REAL8TimeSeries **hc, /**< [out] TD waveform for cross polarisation */
   REAL8 m1_SI,      /**< Mass of companion 1 (kg) */
@@ -1237,11 +1238,11 @@ int XLALSimIMRPhenomT_neha_truncate(
   LALDict *lalParams  /**< LAL dictionary containing accessory parameters */
   )
 {
-  return IMRPhenomTHM_neha_polarizations(hp, hc, m1_SI, m2_SI, chi1L, chi2L, distance, inclination, deltaT, fmin, fRef, phiRef, TimeArray, lalParams, 1, 1);
+  return IMRPhenomTHM_ModelTimes_polarizations(hp, hc, m1_SI, m2_SI, chi1L, chi2L, distance, inclination, deltaT, fmin, fRef, phiRef, TimeArray, lalParams, 1, 1);
 }
 
 /** IMRPhenomTHM polarisations at the times of TimeArray (see XLALSimIMRPhenomTHM). */
-int XLALSimIMRPhenomTHM_neha(
+int XLALSimIMRPhenomTHMModelTimes(
   REAL8TimeSeries **hp, /**< [out] TD waveform for plus polarisation */
   REAL8TimeSeries **hc, /**< [out] TD waveform for cross polarisation */
   REAL8 m1_SI,      /**< Mass of companion 1 (kg) */
@@ -1258,11 +1259,11 @@ int XLALSimIMRPhenomTHM_neha(
   LALDict *lalParams  /**< LAL dictionary containing accessory parameters */
   )
 {
-  return IMRPhenomTHM_neha_polarizations(hp, hc, m1_SI, m2_SI, chi1L, chi2L, distance, inclination, deltaT, fmin, fRef, phiRef, TimeArray, lalParams, 0, 0);
+  return IMRPhenomTHM_ModelTimes_polarizations(hp, hc, m1_SI, m2_SI, chi1L, chi2L, distance, inclination, deltaT, fmin, fRef, phiRef, TimeArray, lalParams, 0, 0);
 }
 
-/** As XLALSimIMRPhenomTHM_neha, zero outside the time span of the standard waveform. */
-int XLALSimIMRPhenomTHM_neha_truncate(
+/** As XLALSimIMRPhenomTHMModelTimes, zero outside the time span of the standard waveform. */
+int XLALSimIMRPhenomTHMModelTimesTruncated(
   REAL8TimeSeries **hp, /**< [out] TD waveform for plus polarisation */
   REAL8TimeSeries **hc, /**< [out] TD waveform for cross polarisation */
   REAL8 m1_SI,      /**< Mass of companion 1 (kg) */
@@ -1279,11 +1280,11 @@ int XLALSimIMRPhenomTHM_neha_truncate(
   LALDict *lalParams  /**< LAL dictionary containing accessory parameters */
   )
 {
-  return IMRPhenomTHM_neha_polarizations(hp, hc, m1_SI, m2_SI, chi1L, chi2L, distance, inclination, deltaT, fmin, fRef, phiRef, TimeArray, lalParams, 0, 1);
+  return IMRPhenomTHM_ModelTimes_polarizations(hp, hc, m1_SI, m2_SI, chi1L, chi2L, distance, inclination, deltaT, fmin, fRef, phiRef, TimeArray, lalParams, 0, 1);
 }
 
 /** IMRPhenomT (2,2) mode at the times of TimeArray ((2,-2) too if requested in the ModeArray of lalParams). */
-int XLALSimIMRPhenomT_neha_just_modes(
+int XLALSimIMRPhenomTModesModelTimes(
   SphHarmTimeSeries **hlms, /**< [out] Dominant mode time series */
   REAL8 m1_SI,      /**< Mass of companion 1 (kg) */
   REAL8 m2_SI,      /**< Mass of companion 2 (kg) */
@@ -1298,15 +1299,15 @@ int XLALSimIMRPhenomT_neha_just_modes(
   LALDict *lalParams  /**< LAL dictionary containing accessory parameters */
   )
 {
-  LALDict *lalParams_aux = IMRPhenomT_neha_22_dict(lalParams, 0);
-  INT4 status = IMRPhenomTHM_Modes_neha_engine(hlms, m1_SI, m2_SI, chi1L, chi2L, distance, deltaT, fmin, fRef, phiRef, lalParams_aux, TimeArray, 1, 0);
-  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: IMRPhenomTHM_Modes_neha_engine failed to produce the modes.");
+  LALDict *lalParams_aux = IMRPhenomT_ModelTimes_22_dict(lalParams, 0);
+  INT4 status = IMRPhenomTHM_ModesModelTimes_engine(hlms, m1_SI, m2_SI, chi1L, chi2L, distance, deltaT, fmin, fRef, phiRef, lalParams_aux, TimeArray, 1, 0);
+  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: IMRPhenomTHM_ModesModelTimes_engine failed to produce the modes.");
   XLALDestroyDict(lalParams_aux);
   return status;
 }
 
-/** As XLALSimIMRPhenomT_neha_just_modes, zero outside the time span of the standard waveform. */
-int XLALSimIMRPhenomT_neha_just_modes_truncate(
+/** As XLALSimIMRPhenomTModesModelTimes, zero outside the time span of the standard waveform. */
+int XLALSimIMRPhenomTModesModelTimesTruncated(
   SphHarmTimeSeries **hlms, /**< [out] Dominant mode time series */
   REAL8 m1_SI,      /**< Mass of companion 1 (kg) */
   REAL8 m2_SI,      /**< Mass of companion 2 (kg) */
@@ -1321,15 +1322,15 @@ int XLALSimIMRPhenomT_neha_just_modes_truncate(
   LALDict *lalParams  /**< LAL dictionary containing accessory parameters */
   )
 {
-  LALDict *lalParams_aux = IMRPhenomT_neha_22_dict(lalParams, 0);
-  INT4 status = IMRPhenomTHM_Modes_neha_engine(hlms, m1_SI, m2_SI, chi1L, chi2L, distance, deltaT, fmin, fRef, phiRef, lalParams_aux, TimeArray, 1, 1);
-  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: IMRPhenomTHM_Modes_neha_engine failed to produce the modes.");
+  LALDict *lalParams_aux = IMRPhenomT_ModelTimes_22_dict(lalParams, 0);
+  INT4 status = IMRPhenomTHM_ModesModelTimes_engine(hlms, m1_SI, m2_SI, chi1L, chi2L, distance, deltaT, fmin, fRef, phiRef, lalParams_aux, TimeArray, 1, 1);
+  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: IMRPhenomTHM_ModesModelTimes_engine failed to produce the modes.");
   XLALDestroyDict(lalParams_aux);
   return status;
 }
 
 /** IMRPhenomTHM modes at the times of TimeArray (see XLALSimIMRPhenomTHM_Modes). */
-SphHarmTimeSeries *XLALSimIMRPhenomTHM_Modes_neha(
+SphHarmTimeSeries *XLALSimIMRPhenomTHMModesModelTimes(
   REAL8 m1_SI,								/**< Mass of companion 1 (kg) */
   REAL8 m2_SI,								/**< Mass of companion 2 (kg) */
   REAL8 chi1L,								/**< Dimensionless aligned spin of companion 1 */
@@ -1344,13 +1345,13 @@ SphHarmTimeSeries *XLALSimIMRPhenomTHM_Modes_neha(
   )
 {
   SphHarmTimeSeries *hlms = NULL;
-  INT4 status = IMRPhenomTHM_Modes_neha_engine(&hlms, m1_SI, m2_SI, chi1L, chi2L, distance, deltaT, fmin, fRef, phiRef, lalParams, TimeArray, 0, 0);
-  XLAL_CHECK_NULL(status != XLAL_FAILURE, XLAL_EFUNC, "Error: Internal function IMRPhenomTHM_Modes_neha_engine has failed producing the modes.");
+  INT4 status = IMRPhenomTHM_ModesModelTimes_engine(&hlms, m1_SI, m2_SI, chi1L, chi2L, distance, deltaT, fmin, fRef, phiRef, lalParams, TimeArray, 0, 0);
+  XLAL_CHECK_NULL(status != XLAL_FAILURE, XLAL_EFUNC, "Error: Internal function IMRPhenomTHM_ModesModelTimes_engine has failed producing the modes.");
   return hlms;
 }
 
-/** As XLALSimIMRPhenomTHM_Modes_neha, zero outside the time span of the standard waveform. */
-SphHarmTimeSeries *XLALSimIMRPhenomTHM_Modes_neha_truncate(
+/** As XLALSimIMRPhenomTHMModesModelTimes, zero outside the time span of the standard waveform. */
+SphHarmTimeSeries *XLALSimIMRPhenomTHMModesModelTimesTruncated(
   REAL8 m1_SI,								/**< Mass of companion 1 (kg) */
   REAL8 m2_SI,								/**< Mass of companion 2 (kg) */
   REAL8 chi1L,								/**< Dimensionless aligned spin of companion 1 */
@@ -1365,7 +1366,7 @@ SphHarmTimeSeries *XLALSimIMRPhenomTHM_Modes_neha_truncate(
   )
 {
   SphHarmTimeSeries *hlms = NULL;
-  INT4 status = IMRPhenomTHM_Modes_neha_engine(&hlms, m1_SI, m2_SI, chi1L, chi2L, distance, deltaT, fmin, fRef, phiRef, lalParams, TimeArray, 0, 1);
-  XLAL_CHECK_NULL(status != XLAL_FAILURE, XLAL_EFUNC, "Error: Internal function IMRPhenomTHM_Modes_neha_engine has failed producing the modes.");
+  INT4 status = IMRPhenomTHM_ModesModelTimes_engine(&hlms, m1_SI, m2_SI, chi1L, chi2L, distance, deltaT, fmin, fRef, phiRef, lalParams, TimeArray, 0, 1);
+  XLAL_CHECK_NULL(status != XLAL_FAILURE, XLAL_EFUNC, "Error: Internal function IMRPhenomTHM_ModesModelTimes_engine has failed producing the modes.");
   return hlms;
 }

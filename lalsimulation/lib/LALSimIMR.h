@@ -1199,8 +1199,8 @@ int XLALSimIMRPhenomT(
   LALDict *lalParams  /**< LAL dictionary containing accessory parameters */
   );
 
-/* Functions for Neha */
-SphHarmTimeSeries *XLALSimIMRPhenomTHM_Modes_neha(
+/* Model-time functions */
+SphHarmTimeSeries *XLALSimIMRPhenomTHMModesModelTimes(
   REAL8 m1_SI,								/**< Mass of companion 1 (kg) */
   REAL8 m2_SI,								/**< Mass of companion 2 (kg) */
   REAL8 chi1L,								/**< Dimensionless aligned spin of companion 1 */
@@ -1214,7 +1214,7 @@ SphHarmTimeSeries *XLALSimIMRPhenomTHM_Modes_neha(
   LALDict *lalParams 						/**< LAL dictionary containing accessory parameters */
   );
 
-SphHarmTimeSeries *XLALSimIMRPhenomTHM_Modes_neha_truncate(
+SphHarmTimeSeries *XLALSimIMRPhenomTHMModesModelTimesTruncated(
   REAL8 m1_SI,								/**< Mass of companion 1 (kg) */
   REAL8 m2_SI,								/**< Mass of companion 2 (kg) */
   REAL8 chi1L,								/**< Dimensionless aligned spin of companion 1 */
@@ -1228,7 +1228,7 @@ SphHarmTimeSeries *XLALSimIMRPhenomTHM_Modes_neha_truncate(
   LALDict *lalParams 						/**< LAL dictionary containing accessory parameters */
   );
 
-int XLALSimIMRPhenomT_neha(
+int XLALSimIMRPhenomTModelTimes(
   REAL8TimeSeries **hp, /**< [out] TD waveform for plus polarisation */
   REAL8TimeSeries **hc, /**< [out] TD waveform for cross polarisation */
   REAL8 m1_SI,      /**< Mass of companion 1 (kg) */
@@ -1245,7 +1245,7 @@ int XLALSimIMRPhenomT_neha(
   LALDict *lalParams  /**< LAL dictionary containing accessory parameters */
   );
 
-int XLALSimIMRPhenomT_neha_just_modes(
+int XLALSimIMRPhenomTModesModelTimes(
   SphHarmTimeSeries **hlms, /**< [out] Dominant mode time series */
   REAL8 m1_SI,      /**< Mass of companion 1 (kg) */
   REAL8 m2_SI,      /**< Mass of companion 2 (kg) */
@@ -1260,7 +1260,7 @@ int XLALSimIMRPhenomT_neha_just_modes(
   LALDict *lalParams  /**< LAL dictionary containing accessory parameters */
   );
 
-int XLALSimIMRPhenomTHM_neha(
+int XLALSimIMRPhenomTHMModelTimes(
   REAL8TimeSeries **hp, /**< [out] TD waveform for plus polarisation */
   REAL8TimeSeries **hc, /**< [out] TD waveform for cross polarisation */
   REAL8 m1_SI,      /**< Mass of companion 1 (kg) */
@@ -1277,7 +1277,7 @@ int XLALSimIMRPhenomTHM_neha(
   LALDict *lalParams	/**< LAL dictionary containing accessory parameters */
   );
 
-int XLALSimIMRPhenomT_neha_truncate(
+int XLALSimIMRPhenomTModelTimesTruncated(
   REAL8TimeSeries **hp, /**< [out] TD waveform for plus polarisation */
   REAL8TimeSeries **hc, /**< [out] TD waveform for cross polarisation */
   REAL8 m1_SI,      /**< Mass of companion 1 (kg) */
@@ -1294,7 +1294,7 @@ int XLALSimIMRPhenomT_neha_truncate(
   LALDict *lalParams  /**< LAL dictionary containing accessory parameters */
   );
 
-int XLALSimIMRPhenomT_neha_just_modes_truncate(
+int XLALSimIMRPhenomTModesModelTimesTruncated(
   SphHarmTimeSeries **hlms, /**< [out] Dominant mode time series */
   REAL8 m1_SI,      /**< Mass of companion 1 (kg) */
   REAL8 m2_SI,      /**< Mass of companion 2 (kg) */
@@ -1309,7 +1309,7 @@ int XLALSimIMRPhenomT_neha_just_modes_truncate(
   LALDict *lalParams  /**< LAL dictionary containing accessory parameters */
   );
 
-int XLALSimIMRPhenomTHM_neha_truncate(
+int XLALSimIMRPhenomTHMModelTimesTruncated(
   REAL8TimeSeries **hp, /**< [out] TD waveform for plus polarisation */
   REAL8TimeSeries **hc, /**< [out] TD waveform for cross polarisation */
   REAL8 m1_SI,      /**< Mass of companion 1 (kg) */
@@ -1485,14 +1485,14 @@ int XLALSimIMRPhenomTPHM_CoprecModes(
   );
 
 
-/* Functions for Neha: IMRPhenomTP / IMRPhenomTPHM modes (inertial L0 frame) and
+/* Model-time functions: IMRPhenomTP / IMRPhenomTPHM modes (inertial L0 frame) and
 polarisations at the times of a TimeArray (units of M, t=0 at the peak of the
-non-precessing 22 amplitude). _truncate: zero outside the time span of the
+non-precessing 22 amplitude). *Truncated: zero outside the time span of the
 standard waveform. */
 /* in module LALSimIMRPhenomTPHM.c */
 
 /** Waveform modes only, dominant co-precessing (2,+-2) content twisted-up (IMRPhenomTP), inertial L0 frame. */
-int XLALSimIMRPhenomTP_neha_just_modes(
+int XLALSimIMRPhenomTPModesModelTimes(
   SphHarmTimeSeries **hlms, /**< [out] Dominant mode time series (L0 frame) */
   REAL8 m1_SI,      /**< Mass of companion 1 (kg) */
   REAL8 m2_SI,      /**< Mass of companion 2 (kg) */
@@ -1511,7 +1511,7 @@ int XLALSimIMRPhenomTP_neha_just_modes(
   LALDict *lalParams  /**< LAL dictionary containing accessory parameters */
   );
 
-int XLALSimIMRPhenomTP_neha_just_modes_truncate(
+int XLALSimIMRPhenomTPModesModelTimesTruncated(
   SphHarmTimeSeries **hlms,
   REAL8 m1_SI, REAL8 m2_SI,
   REAL8 chi1x, REAL8 chi1y, REAL8 chi1z,
@@ -1521,7 +1521,7 @@ int XLALSimIMRPhenomTP_neha_just_modes_truncate(
   );
 
 /** Polarizations, dominant co-precessing (2,+-2) content twisted-up (IMRPhenomTP). */
-int XLALSimIMRPhenomTP_neha(
+int XLALSimIMRPhenomTPModelTimes(
   REAL8TimeSeries **hp, /**< [out] TD waveform for plus polarisation */
   REAL8TimeSeries **hc, /**< [out] TD waveform for cross polarisation */
   REAL8 m1_SI,      /**< Mass of companion 1 (kg) */
@@ -1542,7 +1542,7 @@ int XLALSimIMRPhenomTP_neha(
   LALDict *lalParams  /**< LAL dictionary containing accessory parameters */
   );
 
-int XLALSimIMRPhenomTP_neha_truncate(
+int XLALSimIMRPhenomTPModelTimesTruncated(
   REAL8TimeSeries **hp, REAL8TimeSeries **hc,
   REAL8 m1_SI, REAL8 m2_SI,
   REAL8 chi1x, REAL8 chi1y, REAL8 chi1z,
@@ -1552,7 +1552,7 @@ int XLALSimIMRPhenomTP_neha_truncate(
   );
 
 /** Polarisations, IMRPhenomTPHM (modes selected in the ModeArray of lalParams). */
-int XLALSimIMRPhenomTPHM_neha(
+int XLALSimIMRPhenomTPHMModelTimes(
   REAL8TimeSeries **hp, REAL8TimeSeries **hc,
   REAL8 m1_SI, REAL8 m2_SI,
   REAL8 chi1x, REAL8 chi1y, REAL8 chi1z,
@@ -1561,7 +1561,7 @@ int XLALSimIMRPhenomTPHM_neha(
   REAL8Sequence *TimeArray, LALDict *lalParams
   );
 
-int XLALSimIMRPhenomTPHM_neha_truncate(
+int XLALSimIMRPhenomTPHMModelTimesTruncated(
   REAL8TimeSeries **hp, REAL8TimeSeries **hc,
   REAL8 m1_SI, REAL8 m2_SI,
   REAL8 chi1x, REAL8 chi1y, REAL8 chi1z,
@@ -1571,7 +1571,7 @@ int XLALSimIMRPhenomTPHM_neha_truncate(
   );
 
 /** Euler angles alpha, cos(beta), gamma (co-precessing -> J frame) of IMRPhenomTP/TPHM at the times of TimeArray. */
-int XLALSimIMRPhenomTPHM_neha_euler_angles(
+int XLALSimIMRPhenomTPHMEulerAnglesModelTimes(
   REAL8TimeSeries **alphaTS, REAL8TimeSeries **cosbetaTS, REAL8TimeSeries **gammaTS,
   REAL8 m1_SI, REAL8 m2_SI,
   REAL8 chi1x, REAL8 chi1y, REAL8 chi1z,
@@ -1580,7 +1580,7 @@ int XLALSimIMRPhenomTPHM_neha_euler_angles(
   REAL8Sequence *TimeArray, LALDict *lalParams
   );
 
-int XLALSimIMRPhenomTPHM_neha_euler_angles_truncate(
+int XLALSimIMRPhenomTPHMEulerAnglesModelTimesTruncated(
   REAL8TimeSeries **alphaTS, REAL8TimeSeries **cosbetaTS, REAL8TimeSeries **gammaTS,
   REAL8 m1_SI, REAL8 m2_SI,
   REAL8 chi1x, REAL8 chi1y, REAL8 chi1z,
@@ -1590,7 +1590,7 @@ int XLALSimIMRPhenomTPHM_neha_euler_angles_truncate(
   );
 
 /** Modes in the inertial L0 frame, IMRPhenomTPHM (modes selected in the ModeArray of lalParams). */
-int XLALSimIMRPhenomTPHM_neha_just_modes(
+int XLALSimIMRPhenomTPHMModesModelTimes(
   SphHarmTimeSeries **hlms,
   REAL8 m1_SI, REAL8 m2_SI,
   REAL8 chi1x, REAL8 chi1y, REAL8 chi1z,
@@ -1599,7 +1599,7 @@ int XLALSimIMRPhenomTPHM_neha_just_modes(
   REAL8Sequence *TimeArray, LALDict *lalParams
   );
 
-int XLALSimIMRPhenomTPHM_neha_just_modes_truncate(
+int XLALSimIMRPhenomTPHMModesModelTimesTruncated(
   SphHarmTimeSeries **hlms,
   REAL8 m1_SI, REAL8 m2_SI,
   REAL8 chi1x, REAL8 chi1y, REAL8 chi1z,
