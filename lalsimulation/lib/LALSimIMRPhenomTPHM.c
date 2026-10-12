@@ -1225,6 +1225,44 @@ int XLALSimIMRPhenomTPHMEulerAnglesModelTimesTruncated(
            chi2x, chi2y, chi2z, distance, deltaT, fmin, fRef, phiRef, TimeArray, lalParams, 1);
 }
 
+/* Euler angles of the global rotation from the J frame to the L0 frame: the angles of the standard grid at the
+index of tref (as in XLALSimIMRPhenomTPHM_L0Modes). */
+static int IMRPhenomTPHM_JtoL0AnglesModelTimes(
+  REAL8 *alphaJtoI, REAL8 *cosbetaJtoI, REAL8 *gammaJtoI,
+  REAL8TimeSeries *alphaNat, REAL8TimeSeries *cosbetaNat, REAL8TimeSeries *gammaNat,
+  REAL8 m1_SI, REAL8 m2_SI, REAL8 chi1z, REAL8 chi2z,
+  REAL8 distance, REAL8 deltaT, REAL8 fmin, REAL8 fRef, REAL8 phiRef, LALDict *lalParams)
+{
+  UINT4 status;
+  IMRPhenomTWaveformStruct *pWF;
+  pWF    = XLALMalloc(sizeof(IMRPhenomTWaveformStruct));
+  status = IMRPhenomTSetWaveformVariables(pWF, m1_SI, m2_SI, chi1z, chi2z, distance, deltaT, fmin, fRef, phiRef, lalParams);
+  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: Internal function IMRPhenomTSetWaveformVariables has failed.");
+
+  IMRPhenomTPhase22Struct *pPhase;
+  pPhase = XLALMalloc(sizeof(IMRPhenomTPhase22Struct));
+  status   = IMRPhenomTSetPhase22Coefficients(pPhase, pWF);
+  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: Internal function IMRPhenomTSetPhase22Coefficients has failed.");
+
+  if(pPhase->tmin<0.0 && pPhase->tRef>=0.0)
+  {
+    pPhase->tRef = MAX(-8*pWF->dtM, pPhase->tmin);
+  }
+
+  REAL8 tend = -pPhase->tmin;
+  REAL8 tint1 = tend + pPhase->tRef;
+  size_t length1 = floor(fabs(tint1)/pWF->dtM);
+
+  *alphaJtoI = alphaNat->data->data[length1];
+  *cosbetaJtoI = cosbetaNat->data->data[length1];
+  *gammaJtoI = gammaNat->data->data[length1];
+
+  LALFree(pWF);
+  LALFree(pPhase);
+
+  return status;
+}
+
 /* Modes in the inertial L0 frame at the times of TimeArray. As XLALSimIMRPhenomTPHM_L0Modes
 (co-precessing -> J frame with the time dependent Euler angles -> L0 frame with the
 Euler angles of the standard grid at the reference time). */
@@ -1259,30 +1297,11 @@ static int IMRPhenomTPHM_L0ModesModelTimes_engine(
   status = PhenomTPHM_RotateModes(*hlmI, gammaTS, cosbetaTS, alphaTS, SQRT);
   XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: Internal function PhenomTPHM_RotateModes has failed.");
 
-  /* Index of tref on the standard grid (as in XLALSimIMRPhenomTPHM_L0Modes) */
-  IMRPhenomTWaveformStruct *pWF;
-  pWF    = XLALMalloc(sizeof(IMRPhenomTWaveformStruct));
-  status = IMRPhenomTSetWaveformVariables(pWF, m1_SI, m2_SI, chi1z, chi2z, distance, deltaT, fmin, fRef, phiRef, lalParams);
-  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: Internal function IMRPhenomTSetWaveformVariables has failed.");
-
-  IMRPhenomTPhase22Struct *pPhase;
-  pPhase = XLALMalloc(sizeof(IMRPhenomTPhase22Struct));
-  status   = IMRPhenomTSetPhase22Coefficients(pPhase, pWF);
-  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: Internal function IMRPhenomTSetPhase22Coefficients has failed.");
-
-  if(pPhase->tmin<0.0 && pPhase->tRef>=0.0)
-  {
-    pPhase->tRef = MAX(-8*pWF->dtM, pPhase->tmin);
-  }
-
-  REAL8 tend = -pPhase->tmin;
-  REAL8 tint1 = tend + pPhase->tRef;
-  size_t length1 = floor(fabs(tint1)/pWF->dtM);
-
   /* Global rotation from the J frame to the L0 frame: Euler angles at tref */
-  REAL8 alphaJtoI = alphaNat->data->data[length1];
-  REAL8 cosbetaJtoI = cosbetaNat->data->data[length1];
-  REAL8 gammaJtoI = gammaNat->data->data[length1];
+  REAL8 alphaJtoI, cosbetaJtoI, gammaJtoI;
+  status = IMRPhenomTPHM_JtoL0AnglesModelTimes(&alphaJtoI, &cosbetaJtoI, &gammaJtoI, alphaNat, cosbetaNat, gammaNat,
+             m1_SI, m2_SI, chi1z, chi2z, distance, deltaT, fmin, fRef, phiRef, lalParams);
+  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: function IMRPhenomTPHM_JtoL0AnglesModelTimes has failed.");
 
   size_t length = (*hlmI)->mode->data->length;
   status = PhenomTPHM_RotateModes_Global(*hlmI, -alphaJtoI, cosbetaJtoI, -gammaJtoI, length, SQRT);
@@ -1294,8 +1313,6 @@ static int IMRPhenomTPHM_L0ModesModelTimes_engine(
   XLALDestroyREAL8TimeSeries(alphaNat);
   XLALDestroyREAL8TimeSeries(cosbetaNat);
   XLALDestroyREAL8TimeSeries(gammaNat);
-  LALFree(pWF);
-  LALFree(pPhase);
   LALFree(SQRT);
 
   return status;
@@ -1545,4 +1562,108 @@ int XLALSimIMRPhenomTPHMModelTimesTruncated(
 {
   return IMRPhenomTPHM_ModelTimes_polarizations(hp, hc, m1_SI, m2_SI, chi1x, chi1y, chi1z, chi2x, chi2y, chi2z,
            distance, inclination, deltaT, fmin, fRef, phiRef, TimeArray, lalParams, 0, 1);
+}
+
+/* Co-precessing modes and the Euler angles of the rotation to the L0 frame at the times of TimeArray.
+For each l the L0-frame modes of XLALSimIMRPhenomTP(HM)ModesModelTimes are the co-precessing modes rotated with
+PhenomTPHM_RotateModes(h, gamma, cosbeta, alpha) (co-precessing -> J frame, time dependent) and then with
+PhenomTPHM_RotateModes_Global(h, -alphaJtoL0, cosbetaJtoL0, -gammaJtoL0) (J -> L0 frame, constant). */
+static int IMRPhenomTPHM_CoprecModesAnglesModelTimes_engine(
+  SphHarmTimeSeries **hlms,
+  REAL8TimeSeries **alphaTS, REAL8TimeSeries **cosbetaTS, REAL8TimeSeries **gammaTS,
+  REAL8 *alphaJtoL0, REAL8 *cosbetaJtoL0, REAL8 *gammaJtoL0,
+  REAL8 m1_SI, REAL8 m2_SI,
+  REAL8 chi1x, REAL8 chi1y, REAL8 chi1z,
+  REAL8 chi2x, REAL8 chi2y, REAL8 chi2z,
+  REAL8 distance, REAL8 deltaT, REAL8 fmin, REAL8 fRef, REAL8 phiRef,
+  REAL8Sequence *TimeArray, LALDict *lalParams, UINT4 only22, UINT4 truncate)
+{
+  XLAL_CHECK(NULL != hlms && NULL != alphaTS && NULL != cosbetaTS && NULL != gammaTS, XLAL_EFAULT);
+  XLAL_CHECK(*hlms == NULL && *alphaTS == NULL && *cosbetaTS == NULL && *gammaTS == NULL, XLAL_EFAULT);
+  XLAL_CHECK(NULL != alphaJtoL0 && NULL != cosbetaJtoL0 && NULL != gammaJtoL0, XLAL_EFAULT);
+
+  UINT4 status;
+  REAL8TimeSeries *alphaNat = NULL, *cosbetaNat = NULL, *gammaNat = NULL;
+  REAL8 af;
+
+  status = IMRPhenomTPHM_CoprecModesModelTimes_engine(hlms, alphaTS, cosbetaTS, gammaTS, &alphaNat, &cosbetaNat, &gammaNat, &af,
+             m1_SI, m2_SI, chi1x, chi1y, chi1z, chi2x, chi2y, chi2z,
+             distance, 0.0, deltaT, fmin, fRef, phiRef, TimeArray, lalParams, only22, truncate);
+  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: function IMRPhenomTPHM_CoprecModesModelTimes_engine has failed.");
+
+  status = IMRPhenomTPHM_JtoL0AnglesModelTimes(alphaJtoL0, cosbetaJtoL0, gammaJtoL0, alphaNat, cosbetaNat, gammaNat,
+             m1_SI, m2_SI, chi1z, chi2z, distance, deltaT, fmin, fRef, phiRef, lalParams);
+  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: function IMRPhenomTPHM_JtoL0AnglesModelTimes has failed.");
+
+  XLALDestroyREAL8TimeSeries(alphaNat);
+  XLALDestroyREAL8TimeSeries(cosbetaNat);
+  XLALDestroyREAL8TimeSeries(gammaNat);
+
+  return status;
+}
+
+/** Co-precessing (2,+-2) modes of IMRPhenomTP at the times of TimeArray (units of M, t=0 at the 22 amplitude peak),
+with the Euler angles alpha, cos(beta), gamma (co-precessing -> J frame) at the same times and the angles of the
+constant J -> L0 rotation (the Euler angles at the reference time). */
+int XLALSimIMRPhenomTPCoprecModesModelTimes(
+  SphHarmTimeSeries **hlms,                /**< [out] Co-precessing modes */
+  REAL8TimeSeries **alphaTS,               /**< [out] Euler angle alpha (co-precessing -> J frame) */
+  REAL8TimeSeries **cosbetaTS,             /**< [out] cos(beta) */
+  REAL8TimeSeries **gammaTS,               /**< [out] Euler angle gamma */
+  REAL8 *alphaJtoL0,                       /**< [out] alpha of the J -> L0 rotation */
+  REAL8 *cosbetaJtoL0,                     /**< [out] cos(beta) of the J -> L0 rotation */
+  REAL8 *gammaJtoL0,                       /**< [out] gamma of the J -> L0 rotation */
+  REAL8 m1_SI,                             /**< Mass of companion 1 (kg) */
+  REAL8 m2_SI,                             /**< Mass of companion 2 (kg) */
+  REAL8 chi1x,                             /**< x component of primary spin */
+  REAL8 chi1y,                             /**< y component of primary spin */
+  REAL8 chi1z,                             /**< z component of primary spin */
+  REAL8 chi2x,                             /**< x component of secondary spin */
+  REAL8 chi2y,                             /**< y component of secondary spin */
+  REAL8 chi2z,                             /**< z component of secondary spin */
+  REAL8 distance,                          /**< Luminosity distance (m) */
+  REAL8 deltaT,                            /**< Sampling interval (s) of the standard waveform */
+  REAL8 fmin,                              /**< Starting GW frequency (Hz) */
+  REAL8 fRef,                              /**< Reference GW frequency (Hz) */
+  REAL8 phiRef,                            /**< Reference orbital phase (rad) */
+  REAL8Sequence *TimeArray,                /**< Times (units of M, t=0 at the 22 amplitude peak) */
+  LALDict *lalParams                       /**< LAL dictionary containing accessory parameters */
+  )
+{
+  return IMRPhenomTPHM_CoprecModesAnglesModelTimes_engine(hlms, alphaTS, cosbetaTS, gammaTS, alphaJtoL0, cosbetaJtoL0, gammaJtoL0,
+           m1_SI, m2_SI, chi1x, chi1y, chi1z, chi2x, chi2y, chi2z, distance, deltaT, fmin, fRef, phiRef, TimeArray, lalParams, 1, 0);
+}
+
+/** As XLALSimIMRPhenomTPCoprecModesModelTimes; zero modes and boundary angles outside the time span of the standard waveform. */
+int XLALSimIMRPhenomTPCoprecModesModelTimesTruncated(
+  SphHarmTimeSeries **hlms, REAL8TimeSeries **alphaTS, REAL8TimeSeries **cosbetaTS, REAL8TimeSeries **gammaTS,
+  REAL8 *alphaJtoL0, REAL8 *cosbetaJtoL0, REAL8 *gammaJtoL0,
+  REAL8 m1_SI, REAL8 m2_SI, REAL8 chi1x, REAL8 chi1y, REAL8 chi1z, REAL8 chi2x, REAL8 chi2y, REAL8 chi2z,
+  REAL8 distance, REAL8 deltaT, REAL8 fmin, REAL8 fRef, REAL8 phiRef, REAL8Sequence *TimeArray, LALDict *lalParams)
+{
+  return IMRPhenomTPHM_CoprecModesAnglesModelTimes_engine(hlms, alphaTS, cosbetaTS, gammaTS, alphaJtoL0, cosbetaJtoL0, gammaJtoL0,
+           m1_SI, m2_SI, chi1x, chi1y, chi1z, chi2x, chi2y, chi2z, distance, deltaT, fmin, fRef, phiRef, TimeArray, lalParams, 1, 1);
+}
+
+/** Co-precessing modes of IMRPhenomTPHM (modes selected in the ModeArray of lalParams) at the times of TimeArray, with the
+Euler angles at the same times and the angles of the constant J -> L0 rotation. See XLALSimIMRPhenomTPCoprecModesModelTimes. */
+int XLALSimIMRPhenomTPHMCoprecModesModelTimes(
+  SphHarmTimeSeries **hlms, REAL8TimeSeries **alphaTS, REAL8TimeSeries **cosbetaTS, REAL8TimeSeries **gammaTS,
+  REAL8 *alphaJtoL0, REAL8 *cosbetaJtoL0, REAL8 *gammaJtoL0,
+  REAL8 m1_SI, REAL8 m2_SI, REAL8 chi1x, REAL8 chi1y, REAL8 chi1z, REAL8 chi2x, REAL8 chi2y, REAL8 chi2z,
+  REAL8 distance, REAL8 deltaT, REAL8 fmin, REAL8 fRef, REAL8 phiRef, REAL8Sequence *TimeArray, LALDict *lalParams)
+{
+  return IMRPhenomTPHM_CoprecModesAnglesModelTimes_engine(hlms, alphaTS, cosbetaTS, gammaTS, alphaJtoL0, cosbetaJtoL0, gammaJtoL0,
+           m1_SI, m2_SI, chi1x, chi1y, chi1z, chi2x, chi2y, chi2z, distance, deltaT, fmin, fRef, phiRef, TimeArray, lalParams, 0, 0);
+}
+
+/** As XLALSimIMRPhenomTPHMCoprecModesModelTimes; zero modes and boundary angles outside the time span of the standard waveform. */
+int XLALSimIMRPhenomTPHMCoprecModesModelTimesTruncated(
+  SphHarmTimeSeries **hlms, REAL8TimeSeries **alphaTS, REAL8TimeSeries **cosbetaTS, REAL8TimeSeries **gammaTS,
+  REAL8 *alphaJtoL0, REAL8 *cosbetaJtoL0, REAL8 *gammaJtoL0,
+  REAL8 m1_SI, REAL8 m2_SI, REAL8 chi1x, REAL8 chi1y, REAL8 chi1z, REAL8 chi2x, REAL8 chi2y, REAL8 chi2z,
+  REAL8 distance, REAL8 deltaT, REAL8 fmin, REAL8 fRef, REAL8 phiRef, REAL8Sequence *TimeArray, LALDict *lalParams)
+{
+  return IMRPhenomTPHM_CoprecModesAnglesModelTimes_engine(hlms, alphaTS, cosbetaTS, gammaTS, alphaJtoL0, cosbetaJtoL0, gammaJtoL0,
+           m1_SI, m2_SI, chi1x, chi1y, chi1z, chi2x, chi2y, chi2z, distance, deltaT, fmin, fRef, phiRef, TimeArray, lalParams, 0, 1);
 }

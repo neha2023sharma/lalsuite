@@ -1608,6 +1608,49 @@ int XLALSimIMRPhenomTPHMModesModelTimesTruncated(
   REAL8Sequence *TimeArray, LALDict *lalParams
   );
 
+/** Co-precessing modes of IMRPhenomTP / IMRPhenomTPHM at the times of a TimeArray, with the Euler angles of the
+rotation to the J frame at the same times and the angles of the constant J -> L0 rotation (*Truncated: zero modes
+and boundary angles outside the time span of the standard waveform). */
+int XLALSimIMRPhenomTPCoprecModesModelTimes(
+  SphHarmTimeSeries **hlms, REAL8TimeSeries **alphaTS, REAL8TimeSeries **cosbetaTS, REAL8TimeSeries **gammaTS,
+  REAL8 *alphaJtoL0, REAL8 *cosbetaJtoL0, REAL8 *gammaJtoL0,
+  REAL8 m1_SI, REAL8 m2_SI,
+  REAL8 chi1x, REAL8 chi1y, REAL8 chi1z,
+  REAL8 chi2x, REAL8 chi2y, REAL8 chi2z,
+  REAL8 distance, REAL8 deltaT, REAL8 fmin, REAL8 fRef, REAL8 phiRef,
+  REAL8Sequence *TimeArray, LALDict *lalParams
+  );
+
+int XLALSimIMRPhenomTPCoprecModesModelTimesTruncated(
+  SphHarmTimeSeries **hlms, REAL8TimeSeries **alphaTS, REAL8TimeSeries **cosbetaTS, REAL8TimeSeries **gammaTS,
+  REAL8 *alphaJtoL0, REAL8 *cosbetaJtoL0, REAL8 *gammaJtoL0,
+  REAL8 m1_SI, REAL8 m2_SI,
+  REAL8 chi1x, REAL8 chi1y, REAL8 chi1z,
+  REAL8 chi2x, REAL8 chi2y, REAL8 chi2z,
+  REAL8 distance, REAL8 deltaT, REAL8 fmin, REAL8 fRef, REAL8 phiRef,
+  REAL8Sequence *TimeArray, LALDict *lalParams
+  );
+
+int XLALSimIMRPhenomTPHMCoprecModesModelTimes(
+  SphHarmTimeSeries **hlms, REAL8TimeSeries **alphaTS, REAL8TimeSeries **cosbetaTS, REAL8TimeSeries **gammaTS,
+  REAL8 *alphaJtoL0, REAL8 *cosbetaJtoL0, REAL8 *gammaJtoL0,
+  REAL8 m1_SI, REAL8 m2_SI,
+  REAL8 chi1x, REAL8 chi1y, REAL8 chi1z,
+  REAL8 chi2x, REAL8 chi2y, REAL8 chi2z,
+  REAL8 distance, REAL8 deltaT, REAL8 fmin, REAL8 fRef, REAL8 phiRef,
+  REAL8Sequence *TimeArray, LALDict *lalParams
+  );
+
+int XLALSimIMRPhenomTPHMCoprecModesModelTimesTruncated(
+  SphHarmTimeSeries **hlms, REAL8TimeSeries **alphaTS, REAL8TimeSeries **cosbetaTS, REAL8TimeSeries **gammaTS,
+  REAL8 *alphaJtoL0, REAL8 *cosbetaJtoL0, REAL8 *gammaJtoL0,
+  REAL8 m1_SI, REAL8 m2_SI,
+  REAL8 chi1x, REAL8 chi1y, REAL8 chi1z,
+  REAL8 chi2x, REAL8 chi2y, REAL8 chi2z,
+  REAL8 distance, REAL8 deltaT, REAL8 fmin, REAL8 fRef, REAL8 phiRef,
+  REAL8Sequence *TimeArray, LALDict *lalParams
+  );
+
 /* in module LALSimIMRTEOBResumS.c */
 
 int XLALSimIMRTEOBResumS(
