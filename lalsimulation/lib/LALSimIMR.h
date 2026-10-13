@@ -1650,6 +1650,10 @@ int XLALSimIMRPhenomTPHMCoprecModesModelTimesTruncated(
   REAL8 distance, REAL8 deltaT, REAL8 fmin, REAL8 fRef, REAL8 phiRef,
   REAL8Sequence *TimeArray, LALDict *lalParams
   );
+int XLALSimIMRPhenomTPCoprecModesHarmonicsModelTimes(SphHarmTimeSeries **hlms, SphHarmTimeSeries **harmonics, REAL8 m1_SI, REAL8 m2_SI, REAL8 chi1x, REAL8 chi1y, REAL8 chi1z, REAL8 chi2x, REAL8 chi2y, REAL8 chi2z, REAL8 distance, REAL8 inclination, REAL8 deltaT, REAL8 fmin, REAL8 fRef, REAL8 phiRef, REAL8Sequence *TimeArray, LALDict *lalParams);
+int XLALSimIMRPhenomTPCoprecModesHarmonicsModelTimesTruncated(SphHarmTimeSeries **hlms, SphHarmTimeSeries **harmonics, REAL8 m1_SI, REAL8 m2_SI, REAL8 chi1x, REAL8 chi1y, REAL8 chi1z, REAL8 chi2x, REAL8 chi2y, REAL8 chi2z, REAL8 distance, REAL8 inclination, REAL8 deltaT, REAL8 fmin, REAL8 fRef, REAL8 phiRef, REAL8Sequence *TimeArray, LALDict *lalParams);
+int XLALSimIMRPhenomTPHMCoprecModesHarmonicsModelTimes(SphHarmTimeSeries **hlms, SphHarmTimeSeries **harmonics, REAL8 m1_SI, REAL8 m2_SI, REAL8 chi1x, REAL8 chi1y, REAL8 chi1z, REAL8 chi2x, REAL8 chi2y, REAL8 chi2z, REAL8 distance, REAL8 inclination, REAL8 deltaT, REAL8 fmin, REAL8 fRef, REAL8 phiRef, REAL8Sequence *TimeArray, LALDict *lalParams);
+int XLALSimIMRPhenomTPHMCoprecModesHarmonicsModelTimesTruncated(SphHarmTimeSeries **hlms, SphHarmTimeSeries **harmonics, REAL8 m1_SI, REAL8 m2_SI, REAL8 chi1x, REAL8 chi1y, REAL8 chi1z, REAL8 chi2x, REAL8 chi2y, REAL8 chi2z, REAL8 distance, REAL8 inclination, REAL8 deltaT, REAL8 fmin, REAL8 fRef, REAL8 phiRef, REAL8Sequence *TimeArray, LALDict *lalParams);
 
 /* in module LALSimIMRTEOBResumS.c */
 

@@ -1667,3 +1667,152 @@ int XLALSimIMRPhenomTPHMCoprecModesModelTimesTruncated(
   return IMRPhenomTPHM_CoprecModesAnglesModelTimes_engine(hlms, alphaTS, cosbetaTS, gammaTS, alphaJtoL0, cosbetaJtoL0, gammaJtoL0,
            m1_SI, m2_SI, chi1x, chi1y, chi1z, chi2x, chi2y, chi2z, distance, deltaT, fmin, fRef, phiRef, TimeArray, lalParams, 0, 1);
 }
+
+
+/* Harmonic factors Z_lm(t) of the co-precessing modes h_lm(t) at the times of TimeArray, such that
+h+ - i hx = sum over the modes of Z_lm(t) h_lm(t). With D^J(t) and D^G the Wigner-D matrices of
+PhenomTPHM_RotateModes(h, gamma, cosbeta, alpha) and PhenomTPHM_RotateModes_Global(h, -alphaJtoL0, cosbetaJtoL0,
+-gammaJtoL0), and Y_lm = -2Y_lm(inclination, pi/2 - phiRef) as in LALSimIMRPhenomT_ModelTimes_AddModes:
+Z_lm(t) = sum_{m''} D^J_{m m''}(t) sum_{m'} D^G_{m'' m'} Y_lm'. One series per mode of hlms. */
+static int IMRPhenomTPHM_CoprecHarmonicsModelTimes(
+  SphHarmTimeSeries **harmonics, SphHarmTimeSeries *hlms,
+  REAL8TimeSeries *alphaTS, REAL8TimeSeries *cosbetaTS, REAL8TimeSeries *gammaTS,
+  REAL8 alphaJtoL0, REAL8 cosbetaJtoL0, REAL8 gammaJtoL0, REAL8 inclination, REAL8 phiRef)
+{
+  XLAL_CHECK(NULL != harmonics && NULL == *harmonics && NULL != hlms, XLAL_EFAULT);
+  INT4 lmax = XLALSphHarmTimeSeriesGetMaxL(hlms);
+  XLAL_CHECK(lmax >= 2 && lmax <= 5, XLAL_EINVAL, "Modes with l from 2 to 5 are supported.");
+  size_t length = hlms->mode->data->length;
+
+  PhenomT_precomputed_sqrt *SQRT = XLALMalloc(sizeof(PhenomT_precomputed_sqrt));
+  IMRPhenomTPHM_SetPrecomputedSqrt(SQRT);
+  PhenomTPWignerStruct *wS = XLALCalloc(1, sizeof(PhenomTPWignerStruct));
+
+  /* Y rotated with the constant J -> L0 rotation: Yg[l-2][m''+l] = sum_{m'} D^G_{m'' m'} Y_lm' */
+  COMPLEX16 Yg[4][11];
+  IMRPhenomTPHM_SetWignerDStruct(wS, SQRT, cosbetaJtoL0, -alphaJtoL0, -gammaJtoL0, lmax, -1, 1);
+  for(INT4 l = 2; l <= lmax; l++)
+  {
+    for(INT4 mpp = -l; mpp <= l; mpp++)
+    {
+      Yg[l-2][mpp+l] = 0.0;
+      for(INT4 m = -l; m <= l; m++)
+      {
+        Yg[l-2][mpp+l] += PhenomTWignerDMatrix(l, mpp, m, wS) *
+          XLALSpinWeightedSphericalHarmonic(inclination, LAL_PI/2. - phiRef, -2, l, m);
+      }
+    }
+  }
+
+  for(SphHarmTimeSeries *h = hlms; h; h = h->next)
+  {
+    COMPLEX16TimeSeries *Z = XLALCreateCOMPLEX16TimeSeries("Z", &h->mode->epoch, 0.0, h->mode->deltaT, &lalDimensionlessUnit, length);
+    memset(Z->data->data, 0, length * sizeof(COMPLEX16));
+    *harmonics = XLALSphHarmTimeSeriesAddMode(*harmonics, Z, h->l, h->m);
+    XLALDestroyCOMPLEX16TimeSeries(Z);
+  }
+
+  /* time dependent co-precessing -> J rotation */
+  for(size_t i = 0; i < length; i++)
+  {
+    IMRPhenomTPHM_SetWignerDStruct(wS, SQRT, cosbetaTS->data->data[i], gammaTS->data->data[i], alphaTS->data->data[i], lmax, 1, 0);
+    for(SphHarmTimeSeries *Z = *harmonics; Z; Z = Z->next)
+    {
+      COMPLEX16 z = 0.0;
+      for(INT4 mpp = -(INT4)Z->l; mpp <= (INT4)Z->l; mpp++)
+      {
+        z += PhenomTWignerDMatrix(Z->l, Z->m, mpp, wS) * Yg[Z->l-2][mpp+Z->l];
+      }
+      Z->mode->data->data[i] = z;
+    }
+  }
+
+  LALFree(wS);
+  LALFree(SQRT);
+  return XLAL_SUCCESS;
+}
+
+static int IMRPhenomTPHM_CoprecModesHarmonicsModelTimes_engine(
+  SphHarmTimeSeries **hlms, SphHarmTimeSeries **harmonics,
+  REAL8 m1_SI, REAL8 m2_SI,
+  REAL8 chi1x, REAL8 chi1y, REAL8 chi1z,
+  REAL8 chi2x, REAL8 chi2y, REAL8 chi2z,
+  REAL8 distance, REAL8 inclination, REAL8 deltaT, REAL8 fmin, REAL8 fRef, REAL8 phiRef,
+  REAL8Sequence *TimeArray, LALDict *lalParams, UINT4 only22, UINT4 truncate)
+{
+  REAL8TimeSeries *alphaTS = NULL, *cosbetaTS = NULL, *gammaTS = NULL;
+  REAL8 alphaJtoL0, cosbetaJtoL0, gammaJtoL0;
+  int status = IMRPhenomTPHM_CoprecModesAnglesModelTimes_engine(hlms, &alphaTS, &cosbetaTS, &gammaTS,
+             &alphaJtoL0, &cosbetaJtoL0, &gammaJtoL0, m1_SI, m2_SI, chi1x, chi1y, chi1z, chi2x, chi2y, chi2z,
+             distance, deltaT, fmin, fRef, phiRef, TimeArray, lalParams, only22, truncate);
+  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: function IMRPhenomTPHM_CoprecModesAnglesModelTimes_engine has failed.");
+  status = IMRPhenomTPHM_CoprecHarmonicsModelTimes(harmonics, *hlms, alphaTS, cosbetaTS, gammaTS,
+             alphaJtoL0, cosbetaJtoL0, gammaJtoL0, inclination, phiRef);
+  XLAL_CHECK(XLAL_SUCCESS == status, XLAL_EFUNC, "Error: function IMRPhenomTPHM_CoprecHarmonicsModelTimes has failed.");
+  XLALDestroyREAL8TimeSeries(alphaTS);
+  XLALDestroyREAL8TimeSeries(cosbetaTS);
+  XLALDestroyREAL8TimeSeries(gammaTS);
+  return status;
+}
+
+/** Co-precessing (2,+-2) modes of IMRPhenomTP at the times of TimeArray (units of M, t=0 at the 22 amplitude peak)
+and their harmonic factors Z_lm(t), such that h+ - i hx = sum over the modes of Z_lm(t) h_lm(t). Z includes the
+rotation from the co-precessing frame to the L0 frame and the spherical harmonics at (inclination, pi/2 - phiRef). */
+int XLALSimIMRPhenomTPCoprecModesHarmonicsModelTimes(
+  SphHarmTimeSeries **hlms,                /**< [out] Co-precessing modes */
+  SphHarmTimeSeries **harmonics,           /**< [out] Harmonic factors Z_lm of the same modes */
+  REAL8 m1_SI,                             /**< Mass of companion 1 (kg) */
+  REAL8 m2_SI,                             /**< Mass of companion 2 (kg) */
+  REAL8 chi1x,                             /**< x component of primary spin */
+  REAL8 chi1y,                             /**< y component of primary spin */
+  REAL8 chi1z,                             /**< z component of primary spin */
+  REAL8 chi2x,                             /**< x component of secondary spin */
+  REAL8 chi2y,                             /**< y component of secondary spin */
+  REAL8 chi2z,                             /**< z component of secondary spin */
+  REAL8 distance,                          /**< Luminosity distance (m) */
+  REAL8 inclination,                       /**< Inclination of source (rad) */
+  REAL8 deltaT,                            /**< Sampling interval (s) of the standard waveform */
+  REAL8 fmin,                              /**< Starting GW frequency (Hz) */
+  REAL8 fRef,                              /**< Reference GW frequency (Hz) */
+  REAL8 phiRef,                            /**< Reference orbital phase (rad) */
+  REAL8Sequence *TimeArray,                /**< Times (units of M, t=0 at the 22 amplitude peak) */
+  LALDict *lalParams                       /**< LAL dictionary containing accessory parameters */
+  )
+{
+  return IMRPhenomTPHM_CoprecModesHarmonicsModelTimes_engine(hlms, harmonics, m1_SI, m2_SI, chi1x, chi1y, chi1z,
+           chi2x, chi2y, chi2z, distance, inclination, deltaT, fmin, fRef, phiRef, TimeArray, lalParams, 1, 0);
+}
+
+/** As XLALSimIMRPhenomTPCoprecModesHarmonicsModelTimes; zero modes outside the time span of the standard waveform. */
+int XLALSimIMRPhenomTPCoprecModesHarmonicsModelTimesTruncated(
+  SphHarmTimeSeries **hlms, SphHarmTimeSeries **harmonics,
+  REAL8 m1_SI, REAL8 m2_SI, REAL8 chi1x, REAL8 chi1y, REAL8 chi1z, REAL8 chi2x, REAL8 chi2y, REAL8 chi2z,
+  REAL8 distance, REAL8 inclination, REAL8 deltaT, REAL8 fmin, REAL8 fRef, REAL8 phiRef,
+  REAL8Sequence *TimeArray, LALDict *lalParams)
+{
+  return IMRPhenomTPHM_CoprecModesHarmonicsModelTimes_engine(hlms, harmonics, m1_SI, m2_SI, chi1x, chi1y, chi1z,
+           chi2x, chi2y, chi2z, distance, inclination, deltaT, fmin, fRef, phiRef, TimeArray, lalParams, 1, 1);
+}
+
+/** Co-precessing modes of IMRPhenomTPHM (modes selected in the ModeArray of lalParams) at the times of TimeArray and
+their harmonic factors. See XLALSimIMRPhenomTPCoprecModesHarmonicsModelTimes. */
+int XLALSimIMRPhenomTPHMCoprecModesHarmonicsModelTimes(
+  SphHarmTimeSeries **hlms, SphHarmTimeSeries **harmonics,
+  REAL8 m1_SI, REAL8 m2_SI, REAL8 chi1x, REAL8 chi1y, REAL8 chi1z, REAL8 chi2x, REAL8 chi2y, REAL8 chi2z,
+  REAL8 distance, REAL8 inclination, REAL8 deltaT, REAL8 fmin, REAL8 fRef, REAL8 phiRef,
+  REAL8Sequence *TimeArray, LALDict *lalParams)
+{
+  return IMRPhenomTPHM_CoprecModesHarmonicsModelTimes_engine(hlms, harmonics, m1_SI, m2_SI, chi1x, chi1y, chi1z,
+           chi2x, chi2y, chi2z, distance, inclination, deltaT, fmin, fRef, phiRef, TimeArray, lalParams, 0, 0);
+}
+
+/** As XLALSimIMRPhenomTPHMCoprecModesHarmonicsModelTimes; zero modes outside the time span of the standard waveform. */
+int XLALSimIMRPhenomTPHMCoprecModesHarmonicsModelTimesTruncated(
+  SphHarmTimeSeries **hlms, SphHarmTimeSeries **harmonics,
+  REAL8 m1_SI, REAL8 m2_SI, REAL8 chi1x, REAL8 chi1y, REAL8 chi1z, REAL8 chi2x, REAL8 chi2y, REAL8 chi2z,
+  REAL8 distance, REAL8 inclination, REAL8 deltaT, REAL8 fmin, REAL8 fRef, REAL8 phiRef,
+  REAL8Sequence *TimeArray, LALDict *lalParams)
+{
+  return IMRPhenomTPHM_CoprecModesHarmonicsModelTimes_engine(hlms, harmonics, m1_SI, m2_SI, chi1x, chi1y, chi1z,
+           chi2x, chi2y, chi2z, distance, inclination, deltaT, fmin, fRef, phiRef, TimeArray, lalParams, 0, 1);
+}
